@@ -22,14 +22,24 @@
             -webkit-user-select: none;
         }
 
+        /* The main scrollable area */
+        .main-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+        }
+
         .game-layout {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            height: 100%;
-            padding-top: 0.5rem; /* Optimized for mobile space */ 
-            gap: 1rem;          /* Optimized for mobile space */
+            padding-top: 0.5rem; 
+            padding-bottom: 2rem; /* Added padding to prevent controls bar from touching bottom edge */
+            gap: 1rem;
+            width: 100%;
+            max-width: 500px;
         }
 
         .grid-container {
@@ -125,11 +135,13 @@
             width: 100%;
             max-width: 32rem;
             flex-shrink: 0;
+            padding: 0 1rem;
         }
 
+        /* Increased height to fit 3 rows comfortably */
         .inventory-container {
             width: 100%;
-            height: 220px;
+            height: 300px; /* Increased from 220px */
             background: rgba(30, 41, 59, 0.8);
             border: 1px solid #334155;
             border-radius: 0.75rem;
@@ -137,6 +149,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .inventory-grid {
@@ -146,7 +159,7 @@
             align-content: flex-start;
             gap: 0.5rem;
             height: 100%;
-            overflow-y: auto;
+            overflow-y: hidden; /* Hide internal scroll bar */
         }
 
         .inventory-slot {
@@ -177,10 +190,24 @@
         .nessie-fallback-icon {
             width: 100%;
             height: 100%;
-            padding: 5px; /* Add padding to prevent SVG from touching edges */
+            padding: 5px;
             stroke: #38bdf8;
             stroke-width: 3;
             fill: none;
+        }
+        
+        /* New Control Bar Style (Moved from fixed footer) */
+        #control-bar {
+            width: 100%;
+            max-width: 32rem;
+            padding: 1rem;
+            background-color: #1e293b; /* Slightly lighter background than header/footer for distinction */
+            border-radius: 0.75rem;
+            margin-top: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
         }
     </style>
 
@@ -213,12 +240,12 @@
         </div>
     </header>
 
-    <main class="flex-1 overflow-y-auto">
+    <main class="main-scroll-area">
         <div class="game-layout">
-            <!-- Old timer location removed -->
             
             <div id="game-grid" class="grid-container"></div>
-            <div class="inventory-wrapper px-4">
+            
+            <div class="inventory-wrapper">
                 <div class="inventory-container shadow-xl">
                     <div class="flex justify-between items-center h-4 mb-1">
                         <div class="text-xs text-slate-500 uppercase tracking-widest font-bold flex-1 text-center pl-4">Available Letters</div>
@@ -226,22 +253,24 @@
                     <div id="inventory" class="inventory-grid"></div>
                 </div>
             </div>
+
+            <!-- Hint/Solve controls moved from fixed footer into the scrollable content area -->
+            <div id="control-bar" class="w-full px-4">
+                <button id="hintBtn" class="flex flex-col items-center gap-1 text-slate-400 hover:text-yellow-400 active:text-yellow-500 transition-colors">
+                    <i data-lucide="lightbulb" class="w-6 h-6"></i>
+                    <span class="text-[10px] font-bold uppercase">Hint</span>
+                </button>
+                <div id="status-msg" class="text-center text-xs font-bold text-blue-500 animate-pulse w-32">
+                    SELECT & PLACE
+                </div>
+                <button id="solveBtn" class="flex flex-col items-center gap-1 text-slate-400 hover:text-green-400 active:text-green-500 transition-colors">
+                    <i data-lucide="check-circle" class="w-6 h-6"></i>
+                    <span class="text-[10px] font-bold uppercase">Solve</span>
+                </button>
+            </div>
+            <!-- End of control bar -->
         </div>
     </main>
-
-    <footer class="w-full p-4 bg-slate-900 border-t border-slate-800 flex justify-around items-center z-20 safe-area-bottom flex-none h-20">
-        <button id="hintBtn" class="flex flex-col items-center gap-1 text-slate-400 hover:text-yellow-400 active:text-yellow-500 transition-colors">
-            <i data-lucide="lightbulb" class="w-6 h-6"></i>
-            <span class="text-[10px] font-bold uppercase">Hint</span>
-        </button>
-        <div id="status-msg" class="text-center text-xs font-bold text-blue-500 animate-pulse w-32">
-            SELECT & PLACE
-        </div>
-        <button id="solveBtn" class="flex flex-col items-center gap-1 text-slate-400 hover:text-green-400 active:text-green-500 transition-colors">
-            <i data-lucide="check-circle" class="w-6 h-6"></i>
-            <span class="text-[10px] font-bold uppercase">Solve</span>
-        </button>
-    </footer>
 
     <div id="modal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm">
         <div class="bg-slate-800 p-8 rounded-2xl border-2 border-blue-500 text-center shadow-2xl transform scale-90 transition-transform duration-300 max-w-sm w-full mx-4" id="modal-content">
