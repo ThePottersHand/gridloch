@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grid Loch: Infinite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --tile-size: clamp(3rem, 12vw, 4.5rem);
+            --grid-gap: clamp(0.25rem, 2vw, 0.75rem);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .game-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100%;
+            padding-top: 1rem; 
+            gap: 1.5rem;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--grid-gap);
+            padding: 1rem;
+            background: #1e293b;
+            border-radius: 1rem;
+            border: 1px solid #334155;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            width: fit-content; 
+            flex-shrink: 0;
+        }
+
+        .cell {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background: #334155;
+            border-radius: 0.5rem;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+
+        .tile {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background: #f1f5f9;
+            color: #0f172a;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            cursor: grab;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.1s, opacity 0.1s, border-color 0.1s, background-color 0.3s;
+            touch-action: none;
+            box-sizing: border-box;
+            border: 2px solid transparent;
+        }
+
+        .tile:active { cursor: grabbing; }
+
+        .tile.selected {
+            border: 3px solid #facc15;
+            transform: scale(1.1);
+            z-index: 50;
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
+        }
+
+        .tile.hard-locked {
+            background-color: #475569;
+            color: #cbd5e1;
+            border: 2px solid #334155;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .tile.dragging {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.9;
+            transform: scale(1.1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            border-color: #3b82f6;
+        }
+
+        .tile.word-glow {
+            background-color: #3b82f6 !important;
+            color: white !important;
+            box-shadow: 0 0 15px #3b82f6;
+            animation: pulse 1.5s infinite;
+            border-color: #60a5fa;
+        }
+
+        .highlight {
+            background-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+
+        .inventory-wrapper {
+            width: 100%;
+            max-width: 32rem;
+            flex-shrink: 0;
+        }
+
+        .inventory-container {
+            width: 100%;
+            height: 220px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .inventory-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: flex-start;
+            gap: 0.5rem;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .inventory-slot {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .loader {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #FFF;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .nessie-fallback-icon {
+            width: 100%;
+            height: 100%;
+            padding: 5px; /* Add padding to prevent SVG from touching edges */
+            stroke: #38bdf8;
+            stroke-width: 3;
+            fill: none;
+        }
+    </style>
+
+    <!-- Generic Placeholder Favicon -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='90' font-size='90'%3EG%3C/text%3E%3C/svg%3E">
+</head>
+<body class="h-screen w-screen flex flex-col text-slate-100">
+
+    <header class="w-full p-4 flex justify-between items-center bg-slate-900 border-b border-slate-800 z-20 flex-none h-16">
+        <div class="flex items-start">
+            <div class="flex flex-col">
+                <div class="flex items-center text-xl font-black tracking-wider text-blue-400">
+                    <span>GRID LOCH</span>
+                </div>
+                <span class="text-xs text-slate-500">Infinite Mode</span>
+            </div>
+        </div>
+        <div id="timerDisplay" class="text-2xl font-mono font-bold text-green-400">00:00</div>
+        <div class="flex items-center gap-2">
+            <select id="difficulty" class="bg-slate-800 text-sm text-slate-200 p-2 rounded border border-slate-700 outline-none focus:border-blue-500">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+            <button id="newGameBtn" class="p-2 bg-blue-600 rounded hover:bg-blue-500 text-white shadow-lg active:transform active:scale-95 transition-all">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden">
+        <div class="game-layout">
+            <div id="game-grid" class="grid-container"></div>
+            <div class="inventory-wrapper px-4">
+                <div class="inventory-container shadow-xl">
+                    <div class="flex justify-between items-center h-4 mb-1">
+                        <div class="text-xs text-slate-500 uppercase tracking-widest font-bold flex-1 text-center pl-4">Available Letters</div>
+                    </div>
+                    <div id="inventory" class="inventory-grid"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full p-4 bg-slate-900 border-t border-slate-800 flex justify-around items-center z-20 safe-area-bottom flex-none h-20">
+        <button id="hintBtn" class="flex flex-col items-center gap-1 text-slate-400 hover:text-yellow-400 active:text-yellow-500 transition-colors">
+            <i data-lucide="lightbulb" class="w-6 h-6"></i>
+            <span class="text-[10px] font-bold uppercase">Hint</span>
+        </button>
+        <div id="status-msg" class="text-center text-xs font-bold text-blue-500 animate-pulse w-32">
+            SELECT & PLACE
+        </div>
+        <button id="solveBtn" class="flex flex-col items-center gap-1 text-slate-400 hover:text-green-400 active:text-green-500 transition-colors">
+            <i data-lucide="check-circle" class="w-6 h-6"></i>
+            <span class="text-[10px] font-bold uppercase">Solve</span>
+        </button>
+    </footer>
+
+    <div id="modal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm">
+        <div class="bg-slate-800 p-8 rounded-2xl border-2 border-blue-500 text-center shadow-2xl transform scale-90 transition-transform duration-300 max-w-sm w-full mx-4" id="modal-content">
+            <div class="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400" id="modal-icon-container">
+                <!-- Image for modal success/failure state -->
+                <img id="nessie-icon" class="w-full h-full object-contain" src="" alt="Loch Ness Monster Icon" onerror="loadNessieFallback(this)">
+            </div>
+            <h2 class="text-3xl font-black text-white mb-2">SOLVED!</h2>
+            <p class="text-slate-400 mb-6">You've mastered this grid.</p>
+            <button id="playAgainBtn" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg font-bold shadow-lg w-full transition-colors">
+                Next Puzzle
+            </button>
+        </div>
+    </div>
+
+<script>
+    // --- Image Asset Paths (Assumed to be hosted in /images/) ---
+    const IMAGE_PATHS = {
+        'easy': './images/nessie-easy-win.png',
+        'medium': './images/nessie-medium-win.png',
+        'hard': './images/nessie-hard-win.png',
+        'autoSolve': './images/nessie-auto-solve.png'
+    };
+
+    /**
+     * Fallback function to display a simple SVG if the external image fails to load.
+     * @param {HTMLImageElement} imgElement - The failed image element.
+     */
+    function loadNessieFallback(imgElement) {
+        // Prevent infinite loop if the fallback itself somehow causes an error
+        imgElement.onerror = null; 
+
+        // Simple Loch Ness Monster SVG (Generic Success Icon)
+        const fallbackSVG = `
+            <svg class="nessie-fallback-icon" viewBox="0 0 100 100" fill="#38bdf8" stroke="#0e7490">
+                <path d="M5 80 Q 25 50, 40 60 Q 55 70, 75 40 Q 95 30, 98 60" fill="none" stroke-width="4"/>
+                <circle cx="85" cy="40" r="8" fill="currentColor" stroke-width="4"/>
+                <path d="M5 80 H 98" stroke="#60a5fa" stroke-width="2"/>
+            </svg>
+        `;
+        const container = imgElement.parentElement;
+        container.innerHTML = fallbackSVG;
+    }
+
+    // --- Expanded Dictionary (~2000 Common Words) - Sanitized ---
+    const COMMON_WORDS = [
+        "ABLE","ACID","ACME","ACRE","ACTS","ADDS","AGES","AIDE","AIDS","AIMS","AIRS","ALAS","ALLY","ALMS","ALSO",
+        "ALTO","AMEN","AMID","AMPS","ANEW","ANTE","ANTI","ANTS","APES","APEX","APPS","AQUA","ARCH",
+        "AREA","ARID","ARMS","ARMY","ARTS","ASHY","ASKS","ATOM","AUNT","AURA","AUTO","AVID","AWAY","AXES","AXIS",
+        "BABE","BABY","BACK","BADS","BAGS","BAIL","BAIT","BAKE","BALD","BALE","BALL","BALM","BAND","BANG","BANK",
+        "BARK","BARN","BARS","BASE","BASH","BASS","BATH","BATS","BAYS","BEAK","BEAM","BEAN","BEAR","BEAT","BEAU",
+        "BECK","BEDS","BEEF","BEER","BEES","BEGS","BELL","BELT","BEND","BENT","BERG","BEST","BETS","BIAS","BIDS",
+        "BIKE","BILE","BILL","BINS","BIND","BIOG","BIOS","BIRD","BITE","BITS","BLAB","BLAH","BLAM","BLAT","BLED",
+        "BLEW","BLIP","BLOB","BLOG","BLOT","BLOW","BLUE","BLUR","BOAR","BOAT","BOBS","BOCK","BODE","BODY","BOGS",
+        "BOIL","BOLD","BOLL","BOLT","BOMB","BOND","BONE","BONG","BONK","BOOK","BOOM","BOON","BOOT","BORA","BORE",
+        "BORN","BOSS","BOTH","BOTS","BOUT","BOWL","BOWS","BOYS","BRAG","BRAN","BRAS","BRAT","BRAY","BRED","BREW",
+        "BRIM","BROS","BROW","BUCK","BUDS","BUFF","BUGS","BULB","BULK","BULL","BUMP","BUND","BUNK","BUNS",
+        "BUOY","BURD","BURG","BURL","BURN","BURP","BURR","BURY","BUSH","BUSK","BUST","BUSY","BUTS","BUTT","BUYS",
+        "BUZZ","BYES","BYTE","CABS","CAFE","CAGE","CAKE","CALF","CALL","CALM","CAME","CAMP","CAMS","CANE","CANS",
+        "CANT","CAPE","CAPS","CARB","CARD","CARE","CARS","CART","CASE","CASH","CASK","CAST","CATS","CAVE","CEES",
+        "CELL","CENT","CHAD","CHAP","CHAR","CHAT","CHEF","CHEW","CHIC","CHID","CHIN","CHIP","CHOP","CHOW","CHUG",
+        "CHUM","CITE","CITY","CLAD","CLAM","CLAN","CLAP","CLAW","CLAY","CLEF","CLIP","CLOG","CLOT","CLUB","CLUE",
+        "COAL","COAT","COAX","COBS","COCO","CODE","COGS","COIL","COIN","COKE","COLD","COLT","COMA","COMB",
+        "COME","CONE","CONS","COOK","COOL","COOP","COPS","COPY","CORD","CORE","CORK","CORN","CORP","COST","COTS",
+        "COUP","COVE","COWL","COWS","CRAB","CRAG","CRAM","CRAW","CREW","CRIB","CROP","CROW","CRUX",
+        "CUBE","CUBS","CUFF","CULL","CULT","CUPS","CURB","CURD","CURE","CURL","CURT","CUSP","CUTE","CUTS","CYST",
+        "DABS","DADS","DAFT","DAIS","DALE","DAME","DAMN","DAMP","DAMS","DANG","DANK","DARE","DARK","DARN","DART",
+        "DASH","DATA","DATE","DAWN","DAYS","DAZE","DEAD","DEAF","DEAL","DEAN","DEAR","DEBT","DECK","DEED","DEEM",
+        "DEEP","DEER","DEFT","DEFY","DELI","DELL","DEMO","DENS","DENT","DENY","DESK","DEWS","DIAL","DICE","DIED",
+        "DIES","DIET","DIGS","DIKE","DIME","DIMS","DINE","DING","DINS","DIPS","DIRE","DIRT","DISC","DISH","DISK",
+        "DITS","DIVE","DOCK","DOCS","DOER","DOES","DOGS","DOLE","DOLL","DOME","DONE","DOGS","DONS","DOOM","DOOR",
+        "DOPE","DOSE","DOTS","DOUC","DOUG","DOUR","DOVE","DOWN","DOZE","DRAB","DRAG","DRAM","DRAW","DREW","DRIP",
+        "DROP","DRUB","DRUG","DRUM","DUAL","DUCK","DUCT","DUDE","DUDS","DUEL","DUES","DUET","DUFF","DUKE","DULL",
+        "DULY","DUMB","DUMP","DUNE","DUNG","DUNK","DUOS","DUPE","DUSK","DUST","DUTY","DYED","DYES","DYKE","EACH",
+        "EARL","EARN","EARS","EASE","EAST","EASY","EATS","EBBS","ECHO","ECRU","EDGE","EDIT","EELS","EGGS","EGOS",
+        "EKEG","ELKS","ELLS","ELMS","ELSE","EMIT","ENDS","ENGS","ENVY","EONS","EPIC","ERAS","ERGO","ERGS","EROS",
+        "ETCH","EVEN","EVER","EVIL","EWES","EXAM","EXEC","EXES","EXIT","EXPO","EYED","EYES","FACE","FACT","FADE",
+        "FADS","FAIL","FAIR","FAKE","FALL","FAME","FANG","FANS","FARE","FARM","FAST","FATE","FATS","FAUN",
+        "FAWN","FAZE","FEAR","FEAT","FEDS","FEED","FEEL","FEES","FEET","FELL","FELT","FEND","FERN","FEST","FETE",
+        "FEUD","FIAT","FIBS","FIEF","FIFO","FIGS","FILE","FILL","FILM","FIND","FINE","FINK","FINS","FIRE","FIRM",
+        "FIRS","FISH","FIST","FITS","FIVE","FIZZ","FLAG","FLAK","FLAN","FLAP","FLAT","FLAW","FLAX","FLAY","FLEA",
+        "FLED","FLEE","FLEW","FLEX","FLIP","FLIT","FLOG","FLOP","FLOW","FLUE","FLUX","FOAL","FOAM","FOCI","FOGS",
+        "FOIL","FOLD","FOLK","FOND","FONT","FOOD","FOOL","FOOT","FORD","FORE","FORK","FORM","FORT","FOUL","FOUR",
+        "FOWL","FOXY","FRAG","FRAY","FREE","FRET","FROG","FROM","FUEL","FULL","FUME","FUND","FUNK","FURS","FURY",
+        "FUSE","FUSS","GABS","GADS","GAGA","GAGE","GAGS","GAIN","GAIT","GALA","GALE","GALL","GALS","GAME","GAMS",
+        "GANG","GAPE","GAPS","GARB","GASH","GASP","GATE","GATS","GAVE","GAWK","GAYS","GAZE","GEAR","GEEK","GELS",
+        "GEMS","GENE","GENS","GENT","GERM","GETS","GIBE","GIFT","GIGS","GILD","GILL","GILT","GINS","GIRD","GIRL",
+        "GIST","GIVE","GLAD","GLAM","GLEE","GLEN","GLIB","GLOP","GLOW","GLUE","GLUM","GLUT","GNAT","GNAW","GOAD",
+        "GOAL","GOAS","GOAT","GOBS","GODS","GOER","GOES","GOLD","GOLF","GONE","GONG","GOOD","GOOF","GOON","GORE",
+        "GORY","GOSH","GOTH","GOUT","GOWN","GRAB","GRAD","GRAM","GRAN","GRAY","GREW","GREY","GRID","GRIM","GRIN",
+        "GRIP","GRIT","GROW","GRUB","GULF","GULL","GULP","GUMS","GUNS","GURU","GUSH","GUTS","GUYS","GYMS","GYRO",
+        "HACK","HAGS","HAIL","HAIR","HALE","HALF","HALL","HALO","HALT","HAMS","HAND","HANG","HANK","HARD","HARE",
+        "HARK","HARM","HARP","HART","HASH","HATE","HATS","HAUL","HAVE","HAWK","HAZE","HAZY","HEAD","HEAL","HEAP",
+        "HEAR","HEAT","HECK","HEED","HEEL","HEFT","HEIR","HELD","HELL","HELM","HELP","HEMS","HENS","HERB","HERD",
+        "HERE","HERO","HERS","HEWN","HICK","HIDE","HIGH","HIKE","HILL","HILT","HIND","HINT","HIPS","HIRE","HISS",
+        "HITS","HIVE","HOAX","HOBS","HOCK","HOES","HOGS","HOLD","HOLE","HOLM","HOLY","HOME","HONE","HONK","HOOD",
+        "HOOF","HOOK","HOOP","HOOT","HOPE","HOPS","HORN","HOSE","HOST","HOTS","HOUR","HOVE","HOWL","HUBS","HUFF",
+        "HUGE","HUGS","HULA","HULK","HULL","HUMS","HUNG","HUNK","HUNT","HURL","HURT","HUSH","HUSK","HUTS","HYMN",
+        "HYPE","ICED","ICES","ICON","IDEA","IDLE","IDOL","IDYL","IGLU","ILLS","IMPS","INCH","INFO","INKS","INKY",
+        "INNS","INTO","IONS","IOTA","IRIS","IRON","ISLE","ISMS","ITCH","ITEM","JABS","JACK","JADE","JAGS","JAIL",
+        "JAMB","JAMS","JARS","JAWS","JAYS","JAZZ","JEAN","JEEB","JEEP","JEER","JELL","JERK","JEST","JETS","JEWS",
+        "JIBE","JIBS","JIGS","JILT","JINX","JIVE","JOBS","JOCK","JOGS","JOHN","JOIN","JOKE","JOLT","JOWL","JOYS",
+        "JUDO","JUGS","JUMP","JUNK","JURY","JUST","JUTE","JUTS","KALE","KAYO","KEEL","KEEN","KEEP","KEGS","KELP",
+        "KENO","KEPT","KEYS","KICK","KIDS","KILL","KILN","KILO","KILT","KIND","KING","KINK","KISS","KITE","KITS",
+        "KIWI","KNEE","KNEW","KNIT","KNOB","KNOT","KNOW","KOAN","KOOK","LABS","LACE","LACK","LACY","LADS","LADY",
+        "LAGS","LAID","LAIN","LAIR","LAKE","LAMB","LAME","LAMP","LAMS","LAND","LANE","LANK","LAPS","LARD","LARK",
+        "LASH","LASS","LAST","LATE","LATH","LAUD","LAVA","LAWN","LAWS","LAYS","LAZE","LAZY","LEAD","LEAF","LEAK",
+        "LEAN","LEAP","LEAR","LEAS","LEFT","LEGS","LEIS","LEND","LENS","LENT","LESS","LEST","LETS","LEVY","LEWD",
+        "LIAR","LICE","LICK","LIDS","LIED","LIEN","LIES","LIEU","LIFE","LIFT","LIKE","LILT","LILY","LIMB","LIME",
+        "LIMO","LIMP","LINE","LINK","LINT","LION","LIPS","LISP","LIST","LITE","LIVE","LOAD","LOAF","LOAM","LOAN",
+        "LOBE","LOBS","LOCK","LOCO","LODE","LOFT","LOGO","LOGS","LOIN","LONE","LONG","LOOK","LOOM","LOON","LOOP",
+        "LOOS","LOOT","LOPE","LOPS","LORD","LORE","LOSE","LOSS","LOST","LOTS","LOUD","LOUT","LOVE","LOWS","LUAU",
+        "LUGE","LUGS","LULL","LUMP","LUNG","LURE","LURK","LUSH","LUST","LUTE","LUXE","LYRE","MACE",
+        "MADE","MAGS","MAID","MAIL","MAIM","MAIN","MAKE","MALE","MALL","MALT","MAMA","MANE","MANY","MAPS","MARE",
+        "MARK","MARS","MART","MASH","MASK","MASS","MAST","MATE","MATH","MATS","MAUL","MAWS","MAXI","MAZE","MEAD",
+        "MEAL","MEAN","MEAT","MECH","MEED","MEEK","MEET","MEGA","MELD","MELT","MEMO","MEND","MENU","MEOW","MERE",
+        "MESA","MESH","MESS","META","METH","MICE","MILD","MILE","MILK","MILL","MIME","MIND","MINE","MINI","MINK",
+        "MINT","MIRE","MISS","MIST","MITE","MITT","MOAN","MOAT","MOBS","MOCK","MODE","MOJO","MOLD","MOLE","MOLT",
+        "MOMS","MONK","MONO","MOOD","MOON","MOOR","MOOS","MOOT","MOPE","MOPS","MORE","MORN","MORT","MOSS","MOST",
+        "MOTE","MOTH","MOVE","MOWS","MUCH","MUCK","MUFF","MUGS","MULE","MULL","MUMS","MUSH","MUSK","MUST","MUTE",
+        "MUTT","MYTH","NABS","NAGS","NAIL","NAME","NAPS","NARC","NARK","NAVY","NEAR","NEAT","NECK","NEED","NEON",
+        "NERD","NEST","NETS","NEWS","NEWT","NEXT","NIBS","NICE","NICK","NIGH","NILE","NINE","NIPS","NODE","NODS",
+        "NOEL","NOES","NOIR","NOIS","NOMA","NOMS","NONE","NOOK","NOON","NOPE","NORM","NOSE","NOSY","NOTE","NOUN",
+        "NOVA","NUDE","NUKE","NULL","NUMB","NUNS","NUTS","OAFS","OAKS","OARS","OATH","OATS","OBEY","OBOE","ODDS",
+        "ODOR","OGRE","OILS","OILY","OINK","OKAY","OKRA","OLDS","OLIO","OMEN","OMIT","ONCE","ONES","ONLY","ONTO",
+        "ONUS","ONYX","OOZE","OPEN","OPUS","ORAL","ORBS","ORGY","ORYX","ORCA","ORES","ORGY","OUNC","OURS","OUST",
+        "OUTS","OVAL","OVEN","OVER","OWED","OWES","OWLS","OWNS","OXEN","PACE","PACK","PACT","PADS","PAGE","PAID",
+        "PAIL","PAIN","PAIR","PALE","PALM","PALS","PANE","PANG","PANS","PANT","PAPA","PARE","PARK","PART","PASS",
+        "PAST","PATE","PATH","PATS","PAVE","PAWN","PAWS","PAYS","PEAK","PEAL","PEAR","PEAS","PEAT","PECK","PEEK",
+        "PEEL","PEEP","PEER","PEGS","PELT","PENS","PENT","PEON","PEPS","PERK","PERM","PEST","PETS","PEWS","PHAT",
+        "PHEW","PICK","PIED","PIER","PIES","PIGS","PIKE","PILE","PILL","PINE","PING","PINK","PINS","PINT",
+        "PIPE","PIPS","PITY","PIXE","PLAN","PLAY","PLEA","PLOD","PLOP","PLOT","PLOW","PLOY","PLUG","PLUM","PLUS",
+        "POCK","PODS","POEM","POET","POKE","POLE","POLL","POLO","POLS","POMP","POND","PONS","PONY","POOH","POOL",
+        "POPE","POPS","PORE","PORK","PORT","POSE","POSH","POST","POSY","POTS","POUR","POUT","PRAM",
+        "PRAY","PREP","PREY","PRIM","PROD","PROF","PROM","PROP","PROS","PROW","PUBS","PULL","PULP","PUMA",
+        "PUMP","PUNK","PUNS","PUNT","PUNY","PUPS","PURE","PURL","PURR","PUSH","PUTS","PUTT","PYRE","QUAD","QUAY",
+        "QUIP","QUIT","QUIZ","RACE","RACK","RACY","RADS","RAFT","RAGE","RAGS","RAID","RAIL","RAIN","RAKE","RAMP",
+        "RAMS","RANCH","RAND","RANG","RANK","RANT","RAPE","RAPS","RARE","RASH","RASP","RATE","RATS","RAVE","RAWN",
+        "RAWS","RAYS","RAZE","RAZZ","READ","REAL","REAM","REAP","REAR","RECK","REDO","REDS","REED","REEF","REEK",
+        "REEL","REIN","RELY","REND","RENT","REPS","REST","RIBS","RICE","RICH","RICK","RIDE","RIDS","RIFE","RIFF",
+        "RIFT","RIGS","RILE","RIMS","RIND","RING","RINK","RIOT","RIPE","RIPS","RISE","RISK","RITE","RITS","RITZ",
+        "RIVA","RIVE","ROAD","ROAM","ROAN","ROAR","ROBE","ROBS","ROCK","RODE","RODS","ROES","ROIL","ROLE","ROLL",
+        "ROMP","ROOF","ROOK","ROOM","ROOT","ROPE","ROSE","ROSY","ROTS","ROUT","ROVE","ROWS","RUBS","RUBY","RUDE",
+        "RUE","RUGS","RUIN","RULE","RUNS","RUNT","RUSE","RUSH","RUSK","RUST","RUTS",
+        "SACK","SACS","SAFE","SAGA","SAGE","SAID","SAIL","SAKE","SALE","SALT","SAME","SAND","SANE","SANG","SANK",
+        "SANS","SAPS","SASH","SASS","SATE","SAVE","SAWS","SAYS","SCAB","SCAM","SCAN","SCAR","SCAT","SCOT",
+        "SEA","SEAL","SEAM","SEAR","SEAS","SEAT","SECT","SEED","SEEK","SEEM","SEEN","SEEP","SEES","SELF","SELL",
+        "SEMI","SEND","SENT","SERF","SETS","SEWN","SEWS","SEXY","SHAD","SHAG","SHAM","SHED","SHES","SHIM","SHIN",
+        "SHIP","SHIV","SHOE","SHOO","SHOP","SHOT","SHOW","SHUN","SHUT","SICK","SIDE","SIFT","SIGH","SIGN","SILK",
+        "SILL","SILO","SILT","SINE","SING","SINK","SINS","SIPS","SIRE","SIRS","SITE","SITS","SIZE","SKEW","SKID",
+        "SKIM","SKIN","SKIP","SKIS","SKIT","SLAB","SLAM","SLAP","SLAT","SLAY","SLED","SLEW","SLID","SLIM","SLIP",
+        "SLIT","SLOB","SLOG","SLOP","SLOT","SLOW","SLUE","SLUG","SLUM","SLUR","SNAG","SNAP",
+        "SNIP","SNOB","SNOG","SNOT","SNOW","SNUB","SNUG","SOAK","SOAP","SOAR","SOBS","SOCK","SODA","SODS","SOFA",
+        "SOFT","SOIL","SOLD","SOLE","SOLO","SOMA","SOME","SONG","SONS","SOON","SOOT","SOPS","SORE","SORT","SOSO",
+        "SOTS","SOUL","SOUP","SOUR","SOWN","SOWS","SOY","SPAM","SPAN","SPAR","SPAS","SPAT","SPAY","SPEC","SPED",
+        "SPEW","SPIN","SPIT","SPOT","SPRY","SPUD","SPUN","SPUR","STAB","STAG","STAR","STAT","STAY","STEM","STEP",
+        "STEW","STIR","STOP","STOW","STUB","STUD","STUN","SUCH","DUCK","SUDS","SUED","SUES","SUIT","SULK","SUMO",
+        "SUMS","SUNG","SUNK","SUNS","SUPS","SURE","SURF","SWAB","SWAG","SWAM","SWAN","SWAP","SWAT","SWAY","SWIG",
+        "SWIM","SWUM","SYNC","TABS","TACH","TACK","TACO","TACT","TADS","TAGS","TAIL","TAKE","TALE","TALK","TALL",
+        "TAME","TAMP","TAMS","TANG","TANK","TANS","TAPE","TAPS","TARE","TARP","TART","TASK","TAUT","TAX","TAXI",
+        "TEAK","TEAM","TEAR","TEAS","TEAT","TECH","TEED","TEEM","TEEN","TEES","TELL","TEMP","TEND","TENT","TERM",
+        "TEST","TEXT","THAN","THAT","THAW","THEE","THEM","THEN","THEW","THEY","THIN","THIS","THOU","THRO","THRU",
+        "THUD","THUG","THUS","TICK","TIDE","TIDY","TIED","TIER","TIES","TIFF","TILE","TILL","TILT","TIME","TINE",
+        "TING","TINS","TINT","TINY","TIPS","TIRE","TOAD","TOED","TOES","TOFU","TOGA","TOGS","TOIL","TOLD","TOLL",
+        "TOMB","TOME","TONE","TONG","TONS","TOOK","TOOL","TOOT","TOPS","TORE","TORN","TORT","TOSS","TOTE","TOTS",
+        "TOUR","TOUT","TOWN","TOWS","TOYS","TRAM","TRAP","TRAY","TREE","TREK","TRIM","TRIO","TRIP","TROD","TROT",
+        "TROY","TRUE","TUBA","TUBE","TUBS","TUCK","TUFT","TUGS","TUNA","TUNE","TUNS","TURF","TURN","TUSK",
+        "TUTU","TWAS","TWIG","TWIN","TWIT","TWOS","TYKE","TYPE","TYPO","UBER","UFOS","UGLY","ULNA","UNDO","UNGO",
+        "UNIT","UNTO","UPON","URGE","URNS","USED","USER","USES","VAIL","VAIN","VALE","VAMP","VANE","VANS","VARY",
+        "VASE","VAST","VATS","VEAL","VEER","VEIL","VEIN","VEND","VENT","VERB","VERY","VEST","VETS","VIAL","VIBE",
+        "VICE","VIDE","VIEW","VIGS","VILE","VINE","VINO","VIOL","VISA","VISE","VITA","VOID","VOLT","VOTE","VOWS",
+        "WACK","WADE","WADS","WAF","WAFT","WAGE","WAGS","WAIF","WAIL","WAIST","WAIT","WAKE","WALK","WALL","WAND",
+        "WANE","WANT","WARD","WARE","WARM","WARN","WARP","WARS","WART","WARY","WASH","WASP","WAST","WATS","WATT",
+        "WAVE","WAVY","WAX","WAYS","WEAK","WEAL","WEAN","WEAR","WEBS","WEDS","WEED","WEEK","WEEP","WELD","WELL",
+        "WELT","WENT","WEPT","WERE","WEST","WETS","WHAM","WHAT","WHEE","WHEN","WHET","WHEW","WHEY","WHIM","WHIN",
+        "WHIP","WHIT","WHIZ","WHOA","WHOM","WICK","WIDE","WIFE","WIGS","WILD","WILE","WILL","WILT","WILY","WIND",
+        "WINE","WING","WINK","WINO","WINS","WIPE","WIRE","WIRY","WISE","WISH","WISP","WITH","WITS","WIVES","WOES",
+        "WOKE","WOLF","WOMB","WONT","WOOD","WOOF","WOOL","WOOS","WORD","WORE","WORK","WORM","WORN","WOVE","WOWS",
+        "WRAP","WREN","WRIT","WRONG","WROTE","YAKS","YAMS","YANK","YARD","YARN","YAWL","YAWN","YEAH","YEAR","YEAS",
+        "YELL","YELP","YETI","YEWS","YOGA","YOKE","YOLK","YOND","YORE","YOUR","YOWL","YUCK","YUKS","YULE","ZANY",
+        "ZAPS","ZEAL","ZERO","ZEST","ZINC","ZING","ZION","ZITS","ZONE","ZOOM","ZOOS"
+    ];
+
+    // Pre-process dictionary for speed
+    const WORD_SET = new Set(COMMON_WORDS);
+    const PREFIX_SET = new Set();
+    COMMON_WORDS.forEach(w => {
+        PREFIX_SET.add(w.substring(0, 1));
+        PREFIX_SET.add(w.substring(0, 2));
+        PREFIX_SET.add(w.substring(0, 3));
+        PREFIX_SET.add(w);
+    });
+
+    // --- Sarcastic Messages ---
+    const SARCASTIC_MESSAGES = {
+        HINT: [
+            "Need a hand, champ? It's right there.",
+            "That's one less letter you have to worry about.",
+            "We're basically co-solving this puzzle now.",
+            "Ah, the 'strategic assistance' button.",
+            "Don't worry, I won't tell anyone."
+        ],
+        HINT_FAIL: [
+            "Did you really need a hint for that many letters?",
+            "Look, I'm just the software, but maybe try thinking?",
+            "Using this many hints is starting to cost us money.",
+            "At this rate, the 'Solve' button will be faster.",
+            "I'm running out of easy letters to give you."
+        ],
+        SOLVE: [
+            "Phew! That was a close one, but *I* nailed it.",
+            "Great job! (Manual override activated.)",
+            "Puzzle solved. Your effort level: Minimum. My processing power: Optimal.",
+            "Don't strain yourself. I'll handle the hard stuff (which was everything).",
+            "You earned that win... by clicking the 'I quit' button."
+        ]
+    };
+
+    // --- State Variables ---
+    let currentSolution = [];
+    let gridState = Array(16).fill(null);
+    let inventory = [];
+    let lockedIndices = new Set();
+    let selectedState = null;
+    let usedWordsInPuzzle = new Set();
+    let hintsUsed = 0; 
+    
+    // --- Timer Variables ---
+    let startTime = 0;
+    let timerInterval = null;
+    let elapsedTime = 0;
+
+    // --- Utility Functions ---
+
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        const pad = (num) => String(num).padStart(2, '0');
+        return `${pad(minutes)}:${pad(remainingSeconds)}`;
+    }
+
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        startTime = Date.now() - (elapsedTime * 1000); 
+        timerInterval = setInterval(() => {
+            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timerDisplay').innerText = formatTime(elapsedTime);
+        }, 1000);
+    }
+
+    function pauseTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = null;
+        // elapsedTime is already updated by the interval function
+    }
+
+    function resetTimer() {
+        pauseTimer();
+        elapsedTime = 0;
+        document.getElementById('timerDisplay').innerText = "00:00";
+    }
+
+    // --- Generator Logic (Improved Backtracking) ---
+    
+    function generatePuzzle() {
+        const rows = [];
+        usedWordsInPuzzle.clear();
+        
+        const shuffled = fisherYatesShuffle([...COMMON_WORDS]);
+        
+        if (solveRow(0, rows, shuffled)) {
+            return rows.join('').split('');
+        }
+        // Fallback only if generation fails (should be rare now)
+        return ['TIME','IDEA','MEAL','EARN'].join('').split('');
+    }
+
+    function fisherYatesShuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]]; 
+        }
+        return array;
+    }
+
+    function solveRow(rowIndex, currentRows, wordList) {
+        if (rowIndex === 4) {
+            // Final validation: Check columns
+            const colSet = new Set();
+            for (let c = 0; c < 4; c++) {
+                let colWord = '';
+                for (let r = 0; r < 4; r++) colWord += currentRows[r][c];
+                
+                if (!WORD_SET.has(colWord)) return false;
+                if (usedWordsInPuzzle.has(colWord)) return false; 
+                
+                if(colSet.has(colWord)) return false;
+                colSet.add(colWord);
+            }
+            return true;
+        }
+
+        for (let w of wordList) {
+            if (usedWordsInPuzzle.has(w)) continue;
+
+            let validPrefix = true;
+            for (let c = 0; c < 4; c++) {
+                let prefix = "";
+                for (let r = 0; r < rowIndex; r++) prefix += currentRows[r][c];
+                prefix += w[c];
+                
+                if (!PREFIX_SET.has(prefix)) {
+                    validPrefix = false;
+                    break;
+                }
+            }
+
+            if (validPrefix) {
+                currentRows.push(w);
+                usedWordsInPuzzle.add(w);
+                
+                if (solveRow(rowIndex + 1, currentRows, wordList)) return true;
+                
+                // Backtrack
+                usedWordsInPuzzle.delete(w);
+                currentRows.pop();
+            }
+        }
+        return false;
+    }
+
+    // --- Sound Engine ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    function playTone(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+        
+        switch(type) {
+            case 'pickup':
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(400, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1); break;
+            case 'drop':
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1); break;
+            case 'match':
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.linearRampToValueAtTime(880, now + 0.15);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3); break;
+            case 'win':
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(523, now);
+                osc.frequency.setValueAtTime(659, now + 0.1);
+                osc.frequency.setValueAtTime(784, now + 0.2);
+                osc.frequency.setValueAtTime(1046, now + 0.3);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                osc.start(now); osc.stop(now + 0.8); break;
+        }
+    }
+
+    // --- Game Logic ---
+
+    function initGame() {
+        document.getElementById('status-msg').innerHTML = '<span class="loader"></span>';
+        resetTimer(); // Reset and stop timer during generation
+        
+        // Ensure the image element is present before setup
+        const container = document.getElementById('modal-icon-container');
+        if (!document.getElementById('nessie-icon')) {
+            container.innerHTML = `<img id="nessie-icon" class="w-full h-full object-contain" src="" alt="Loch Ness Monster Icon" onerror="loadNessieFallback(this)">`;
+        }
+        
+        // Clear any previous fallback SVG if present, reset image source
+        document.getElementById('nessie-icon').src = ''; 
+        
+        setTimeout(() => {
+            currentSolution = generatePuzzle();
+            setupBoard();
+            startTimer(); // Start timer after board setup
+        }, 50);
+    }
+
+    function setupBoard() {
+        gridState = Array(16).fill(null);
+        lockedIndices.clear();
+        inventory = [];
+        selectedState = null;
+        hintsUsed = 0; 
+
+        document.getElementById('status-msg').innerText = "SELECT & PLACE";
+        document.body.style.pointerEvents = 'auto';
+
+        const diff = document.getElementById('difficulty').value;
+        let keepCount = 5;
+        if (diff === 'easy') keepCount = 8;
+        if (diff === 'hard') keepCount = 3;
+
+        const indices = Array.from({length: 16}, (_, i) => i);
+        for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+
+        for (let i = 0; i < keepCount; i++) {
+            const idx = indices[i];
+            gridState[idx] = currentSolution[idx];
+            lockedIndices.add(idx);
+        }
+
+        for (let i = keepCount; i < 16; i++) {
+            inventory.push(currentSolution[indices[i]]);
+        }
+        inventory.sort(() => Math.random() - 0.5);
+
+        render();
+        checkWin(false);
+    }
+
+    // --- Rendering and Interaction (omitting unchanged methods) ---
+
+    function render() {
+        renderGrid();
+        renderInventory();
+        checkPatterns();
+        
+        if (selectedState) {
+            if (selectedState.source === 'grid') {
+                const tile = document.querySelector(`.cell[data-index="${selectedState.index}"] .tile`);
+                if (tile) tile.classList.add('selected');
+            } else {
+                const tile = document.querySelector(`.tile[data-source="inventory"][data-index="${selectedState.index}"]`);
+                if (tile) tile.classList.add('selected');
+            }
+        }
+    }
+
+    function renderGrid() {
+        const container = document.getElementById('game-grid');
+        container.innerHTML = '';
+
+        for (let i = 0; i < 16; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.index = i;
+            cell.onclick = () => handleCellClick(i);
+
+            if (gridState[i] !== null) {
+                const tile = createTile(gridState[i], lockedIndices.has(i));
+                tile.dataset.source = 'grid';
+                tile.dataset.index = i;
+                cell.appendChild(tile);
+            }
+            container.appendChild(cell);
+        }
+    }
+
+    function renderInventory() {
+        const container = document.getElementById('inventory');
+        container.innerHTML = '';
+        inventory.forEach((char, index) => {
+            const slot = document.createElement('div');
+            slot.className = 'inventory-slot';
+            const tile = createTile(char, false);
+            tile.dataset.source = 'inventory';
+            tile.dataset.index = index;
+            slot.appendChild(tile);
+            container.appendChild(slot);
+        });
+    }
+
+    function createTile(char, isLocked) {
+        const div = document.createElement('div');
+        div.className = 'tile';
+        if (isLocked) div.classList.add('hard-locked');
+        div.textContent = char;
+        if (!isLocked) {
+            div.addEventListener('pointerdown', handlePointerDown);
+        }
+        return div;
+    }
+
+    // --- Interaction (keeping drag/drop/click logic for completeness) ---
+    let dragItem = null, dragData = null, startX = 0, startY = 0, isDragging = false;
+    let tileWidth = 0;
+    let tileHeight = 0;
+
+    function handlePointerDown(e) {
+        e.preventDefault();
+        const target = e.currentTarget;
+        
+        if (tileWidth === 0) {
+            tileWidth = target.offsetWidth;
+            tileHeight = target.offsetHeight;
+        }
+
+        dragData = { 
+            char: target.textContent, 
+            source: target.dataset.source, 
+            index: parseInt(target.dataset.index), 
+            originalElement: target 
+        };
+        startX = e.clientX;
+        startY = e.clientY;
+        isDragging = false;
+        document.addEventListener('pointermove', handlePointerMove);
+        document.addEventListener('pointerup', handlePointerUp);
+    }
+
+    function handlePointerMove(e) {
+        e.preventDefault();
+        if (Math.hypot(e.clientX - startX, e.clientY - startY) > 10 && !isDragging) startDrag(e);
+        if (isDragging && dragItem) {
+            dragItem.style.left = (e.clientX - tileWidth / 2) + 'px';
+            dragItem.style.top = (e.clientY - tileHeight / 2) + 'px';
+            highlightDropTarget(e.clientX, e.clientY);
+        }
+    }
+
+    function startDrag(e) {
+        isDragging = true;
+        if (selectedState) {
+            selectedState = null;
+            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+        }
+        
+        dragItem = dragData.originalElement.cloneNode(true);
+        dragItem.classList.add('dragging');
+        dragItem.classList.remove('selected');
+        
+        dragItem.style.left = (e.clientX - tileWidth / 2) + 'px';
+        dragItem.style.top = (e.clientY - tileHeight / 2) + 'px';
+        
+        document.body.appendChild(dragItem);
+        dragData.originalElement.style.opacity = '0';
+        playTone('pickup');
+    }
+
+    function handlePointerUp(e) {
+        document.removeEventListener('pointermove', handlePointerMove);
+        document.removeEventListener('pointerup', handlePointerUp);
+        
+        document.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
+        
+        if (dragData && dragData.originalElement) {
+             dragData.originalElement.style.opacity = '1';
+        }
+
+        if (!isDragging) handleClick();
+        else handleDrop(e);
+        
+        if (dragItem) dragItem.remove();
+        dragItem = null; dragData = null; isDragging = false;
+    }
+
+    function handleClick() {
+        const clickedTile = { index: dragData.index, source: dragData.source, char: dragData.char };
+        if (selectedState && selectedState.index === clickedTile.index && selectedState.source === clickedTile.source) {
+            selectedState = null; playTone('pickup'); render(); return;
+        }
+        if (!selectedState) {
+            selectedState = clickedTile; playTone('pickup'); render(); return;
+        }
+        performMove(selectedState, clickedTile);
+        selectedState = null;
+    }
+
+    function handleCellClick(targetIndex) {
+        if (!selectedState) return;
+        if (gridState[targetIndex] !== null) return;
+        const target = { index: targetIndex, source: 'grid', char: null };
+        performMove(selectedState, target);
+        selectedState = null;
+    }
+
+    function performMove(from, to) {
+        let moveMade = false;
+        if (from.source === 'grid' && to.source === 'grid') {
+            const temp = gridState[to.index]; gridState[to.index] = gridState[from.index]; gridState[from.index] = temp; moveMade = true;
+        } else if (from.source === 'inventory' && to.source === 'grid') {
+            const char = inventory[from.index]; const targetChar = gridState[to.index];
+            inventory.splice(from.index, 1);
+            if (targetChar) inventory.push(targetChar);
+            gridState[to.index] = char; moveMade = true;
+        } else if (from.source === 'grid' && to.source === 'inventory') {
+            const gridChar = gridState[from.index]; const invChar = inventory[to.index];
+            gridState[from.index] = invChar; inventory[to.index] = gridChar; moveMade = true;
+        } else if (from.source === 'inventory' && to.source === 'inventory') {
+            const temp = inventory[to.index]; inventory[to.index] = inventory[from.index]; inventory[from.index] = temp; moveMade = true;
+        }
+        if (moveMade) { playTone('drop'); render(); }
+    }
+
+    function handleDrop(e) {
+        dragItem.style.display = 'none';
+        const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+        const cell = elemBelow ? elemBelow.closest('.cell') : null;
+        if (cell) {
+            const targetIndex = parseInt(cell.dataset.index);
+            if (lockedIndices.has(targetIndex)) { cancelDrag(); return; }
+            const target = { index: targetIndex, source: 'grid', char: gridState[targetIndex] };
+            const from = { index: dragData.index, source: dragData.source, char: dragData.char };
+            performMove(from, target);
+        } else if (dragData.source === 'grid') {
+            gridState[dragData.index] = null; inventory.push(dragData.char); playTone('drop'); render();
+        } else { cancelDrag(); }
+    }
+
+    function cancelDrag() { dragData.originalElement.style.opacity = '1'; }
+
+    function highlightDropTarget(x, y) {
+        document.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
+        dragItem.style.display = 'none';
+        const el = document.elementFromPoint(x, y);
+        dragItem.style.display = 'block';
+        const cell = el?.closest('.cell');
+        if (cell && !lockedIndices.has(parseInt(cell.dataset.index))) cell.classList.add('highlight');
+    }
+
+    function checkPatterns() {
+        document.querySelectorAll('.word-glow').forEach(el => el.classList.remove('word-glow'));
+        
+        let matchFound = false;
+
+        // Row check (0, 1, 2, 3)
+        for(let r=0; r<4; r++) {
+            let w = ''; 
+            const solutionWord = currentSolution.slice(r*4, r*4+4).join(''); 
+            let idxs = [];
+            
+            for(let c=0; c<4; c++) { 
+                const idx = r * 4 + c;
+                w += gridState[idx] || ' '; 
+                idxs.push(idx); 
+            }
+
+            // Only glow if the current word exactly matches the solution word for THIS ROW
+            if (w === solutionWord) {
+                 highlightWord(idxs);
+                 matchFound = true;
+            }
+        }
+
+        // Column check (0, 1, 2, 3)
+        for(let c=0; c<4; c++) {
+            let w = '';
+            let solutionWord = '';
+            let idxs = [];
+            
+            for(let r=0; r<4; r++) { 
+                const idx = r * 4 + c;
+                w += gridState[idx] || ' '; 
+                solutionWord += currentSolution[idx]; 
+                idxs.push(idx); 
+            }
+            
+            // Only glow if the current word exactly matches the solution word for THIS COLUMN
+            if (w === solutionWord) {
+                 highlightWord(idxs);
+                 matchFound = true;
+            }
+        }
+        
+        // Play match tone only if a word is correctly placed
+        if (matchFound) playTone('match'); 
+
+        checkWin(true);
+    }
+
+    function highlightWord(indices) {
+        indices.forEach(idx => {
+            const cell = document.querySelector(`.cell[data-index="${idx}"]`);
+            if (cell) {
+                const tile = cell.querySelector('.tile');
+                if (tile) tile.classList.add('word-glow');
+            }
+        });
+    }
+
+    function checkWin(playAudio) {
+        const isWin = gridState.every((char, i) => char === currentSolution[i]);
+        if (isWin) {
+            pauseTimer();
+            if (playAudio) playTone('win');
+            
+            const nessieIcon = document.getElementById('nessie-icon');
+            const currentDiff = document.getElementById('difficulty').value;
+            const timeString = formatTime(elapsedTime);
+            
+            // Set image source based on difficulty
+            if (nessieIcon) nessieIcon.src = IMAGE_PATHS[currentDiff];
+            
+            // If the solve button wasn't just pressed (which handles its own status)
+            if (document.getElementById('status-msg').innerText !== "SOLVING...") {
+                 let winMessage = "Perfect! You solved the grid yourself!";
+                 
+
+                 if (hintsUsed > 0) {
+                     const hintText = `You only needed ${hintsUsed} hint${hintsUsed !== 1 ? 's' : ''}.`;
+                     if (currentDiff === 'easy') {
+                         winMessage = `Victory achieved in ${timeString}! ${hintText} Maybe next time, try 'Easy'... oh, wait.`;
+                     } else {
+                         winMessage = `Victory achieved in ${timeString}! ${hintText} Maybe next time, try 'Easy'?`;
+                     }
+                 } else {
+                     winMessage = `Flawless Victory in ${timeString}! No hints required. You are a grid master.`;
+                 }
+                 document.querySelector('#modal-content p').innerText = winMessage;
+                 
+                 const modal = document.getElementById('modal');
+                 modal.classList.remove('hidden');
+                 void modal.offsetWidth;
+                 modal.classList.remove('opacity-0');
+            }
+        }
+    }
+
+    function giveHint() {
+        const wrongIndices = [];
+        for(let i=0; i<16; i++) {
+            if (lockedIndices.has(i)) continue;
+            if (gridState[i] !== currentSolution[i]) wrongIndices.push(i);
+        }
+        if (wrongIndices.length === 0) return;
+
+        const targetIdx = wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
+        const correctChar = currentSolution[targetIdx];
+
+        if (gridState[targetIdx]) inventory.push(gridState[targetIdx]);
+        const invIdx = inventory.indexOf(correctChar);
+        if (invIdx > -1) inventory.splice(invIdx, 1);
+        else {
+            const otherIdx = gridState.findIndex((c, i) => c === correctChar && !lockedIndices.has(i) && i !== targetIdx);
+            if (otherIdx > -1) gridState[otherIdx] = null;
+        }
+        gridState[targetIdx] = correctChar;
+        lockedIndices.add(targetIdx);
+        
+        hintsUsed++; // INCREMENT HINT COUNTER
+
+        // Sarcastic message logic
+        let statusMsg;
+        if (hintsUsed > 2) {
+            statusMsg = SARCASTIC_MESSAGES.HINT_FAIL[Math.floor(Math.random() * SARCASTIC_MESSAGES.HINT_FAIL.length)];
+        } else {
+            statusMsg = SARCASTIC_MESSAGES.HINT[Math.floor(Math.random() * SARCASTIC_MESSAGES.HINT.length)];
+        }
+        document.getElementById('status-msg').innerText = statusMsg;
+
+
+        playTone('match');
+        render();
+    }
+
+    async function solve() {
+        pauseTimer(); // Stop timer immediately
+        const solveTime = formatTime(elapsedTime);
+
+        document.getElementById('status-msg').innerText = "SOLVING...";
+        document.body.style.pointerEvents = 'none';
+        selectedState = null; render();
+
+        for (let i = 0; i < 16; i++) {
+            const targetChar = currentSolution[i];
+            if (gridState[i] === targetChar) continue;
+
+            let foundInInventory = inventory.indexOf(targetChar);
+            let foundInGrid = -1;
+
+            if (foundInInventory !== -1) {
+                const wrongChar = gridState[i];
+                inventory.splice(foundInInventory, 1);
+                if (wrongChar) inventory.push(wrongChar);
+                gridState[i] = targetChar;
+            } else {
+                for(let k=0; k<16; k++) {
+                    if (k === i) continue;
+                    if (gridState[k] === targetChar && !lockedIndices.has(k)) {
+                        foundInGrid = k; break;
+                    }
+                }
+                if (foundInGrid !== -1) {
+                    const wrongChar = gridState[i];
+                    gridState[i] = gridState[foundInGrid];
+                    gridState[foundInGrid] = wrongChar;
+                } else {
+                    gridState[i] = targetChar;
+                }
+            }
+            playTone('drop');
+            render();
+            await new Promise(r => setTimeout(r, 150));
+        }
+        
+        // Set auto-solve image source
+        const nessieIcon = document.getElementById('nessie-icon');
+        if (nessieIcon) nessieIcon.src = IMAGE_PATHS.autoSolve;
+        
+        // Sarcastic Solve Message, emphasizing program's speed
+        const sarcasticMsgTemplate = SARCASTIC_MESSAGES.SOLVE[Math.floor(Math.random() * SARCASTIC_MESSAGES.SOLVE.length)];
+        document.getElementById('status-msg').innerText = sarcasticMsgTemplate;
+        
+        // Prepare modal for auto-solve
+        document.querySelector('#modal-content h2').innerText = "AUTO-SOLVED";
+        document.querySelector('#modal-content p').innerText = `I solved it in ${solveTime}. It seems one of us is a grid master! Try a new puzzle without the emergency button next time.`;
+        
+        lockedIndices = new Set([...Array(16).keys()]);
+        checkPatterns();
+        document.body.style.pointerEvents = 'auto';
+
+        const modal = document.getElementById('modal');
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.classList.remove('opacity-0');
+    }
+
+    document.getElementById('newGameBtn').addEventListener('click', () => { playTone('pickup'); initGame(); });
+    document.getElementById('difficulty').addEventListener('change', initGame);
+    document.getElementById('hintBtn').addEventListener('click', giveHint);
+    document.getElementById('solveBtn').addEventListener('click', solve);
+    document.getElementById('playAgainBtn').addEventListener('click', () => {
+        document.getElementById('modal').classList.add('opacity-0');
+        setTimeout(() => {
+            document.getElementById('modal').classList.add('hidden');
+            // Reset modal title for user win state
+            document.querySelector('#modal-content h2').innerText = "SOLVED!";
+            initGame();
+        }, 300);
+    });
+
+    initGame();
+    lucide.createIcons();
+</script>
+</body>
+</html>
