@@ -198,21 +198,25 @@
                 <span class="text-xs text-slate-500">Infinite Mode</span>
             </div>
         </div>
-        <div id="timerDisplay" class="text-2xl font-mono font-bold text-green-400">00:00</div>
-        <div class="flex items-center gap-2">
-            <select id="difficulty" class="bg-slate-800 text-sm text-slate-200 p-2 rounded border border-slate-700 outline-none focus:border-blue-500">
+        
+        <!-- Adjusted button group for responsive sizing and color -->
+        <div class="flex items-center gap-2 w-1/2 sm:w-auto">
+            <select id="difficulty" class="flex-1 bg-slate-800 text-sm text-blue-400 p-2 rounded border border-slate-700 outline-none focus:border-blue-500 min-w-[70px]">
                 <option value="easy">Easy</option>
                 <option value="medium" selected>Medium</option>
                 <option value="hard">Hard</option>
             </select>
-            <button id="newGameBtn" class="p-2 bg-blue-600 rounded hover:bg-blue-500 text-white shadow-lg active:transform active:scale-95 transition-all">
+            <button id="newGameBtn" class="p-2 bg-blue-600 rounded hover:bg-blue-500 text-white shadow-lg active:transform active:scale-95 transition-all flex-shrink-0">
                 <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
             </button>
         </div>
     </header>
 
-    <main class="flex-1 overflow-hidden">
+    <main class="flex-1 overflow-y-auto">
         <div class="game-layout">
+            <!-- Timer moved here, between header and grid -->
+            <div id="timerDisplay" class="text-2xl font-mono font-bold text-green-400 mb-4 self-center w-full text-center">00:00</div>
+            
             <div id="game-grid" class="grid-container"></div>
             <div class="inventory-wrapper px-4">
                 <div class="inventory-container shadow-xl">
@@ -412,7 +416,7 @@
         "WACK","WADE","WADS","WAF","WAFT","WAGE","WAGS","WAIF","WAIL","WAIST","WAIT","WAKE","WALK","WALL","WAND",
         "WANE","WANT","WARD","WARE","WARM","WARN","WARP","WARS","WART","WARY","WASH","WASP","WAST","WATS","WATT",
         "WAVE","WAVY","WAX","WAYS","WEAK","WEAL","WEAN","WEAR","WEBS","WEDS","WEED","WEEK","WEEP","WELD","WELL",
-        "WELT","WENT","WEPT","WERE","WEST","WETS","WHAM","WHAT","WHEE","WHEN","WHET","WHEW","WHEY","WHIM","WHIN",
+        "WELT","WENT","WEPT","WERE","WEST","WETS","WHAM","WHAT","WHEE","WHEN","WHET","WHOW","WHEY","WHIM","WHIN",
         "WHIP","WHIT","WHIZ","WHOA","WHOM","WICK","WIDE","WIFE","WIGS","WILD","WILE","WILL","WILT","WILY","WIND",
         "WINE","WING","WINK","WINO","WINS","WIPE","WIRE","WIRY","WISE","WISH","WISP","WITH","WITS","WIVES","WOES",
         "WOKE","WOLF","WOMB","WONT","WOOD","WOOF","WOOL","WOOS","WORD","WORE","WORK","WORM","WORN","WOVE","WOWS",
