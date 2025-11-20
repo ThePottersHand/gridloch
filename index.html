@@ -11,23 +11,39 @@
             --bg-color: #0f172a;
             --tile-size: clamp(3rem, 12vw, 4.5rem);
             --grid-gap: clamp(0.25rem, 2vw, 0.75rem);
+            
+            /* Calculated height for 3 rows of tiles + 2 gaps + top/bottom padding (1rem each) */
+            /* 3 * var(--tile-size) + 2 * var(--grid-gap) + 2rem (for inner padding) */
+            --inventory-height: calc(3 * var(--tile-size) + 2 * var(--grid-gap) + 2rem);
         }
 
         body {
             background-color: var(--bg-color);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             touch-action: none;
-            overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
+            display: flex; /* Flex container for header + main content */
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* Only the main scroll area should scroll */
+        }
+
+        /* Fixed Header */
+        header {
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
 
         /* The main scrollable area */
         .main-scroll-area {
             flex: 1;
-            overflow-y: auto;
+            overflow-y: auto; /* Enables scrolling below the fixed header */
             display: flex;
             justify-content: center;
+            width: 100%;
         }
 
         .game-layout {
@@ -36,7 +52,7 @@
             align-items: center;
             justify-content: flex-start;
             padding-top: 0.5rem; 
-            padding-bottom: 2rem; /* Added padding to prevent controls bar from touching bottom edge */
+            padding-bottom: 2rem; 
             gap: 1rem;
             width: 100%;
             max-width: 500px;
@@ -138,10 +154,10 @@
             padding: 0 1rem;
         }
 
-        /* Increased height to fit 3 rows comfortably */
+        /* Fixed height based on CSS variables */
         .inventory-container {
             width: 100%;
-            height: 300px; /* Increased from 220px */
+            height: var(--inventory-height); /* Set to 3 rows of tiles */
             background: rgba(30, 41, 59, 0.8);
             border: 1px solid #334155;
             border-radius: 0.75rem;
@@ -159,7 +175,7 @@
             align-content: flex-start;
             gap: 0.5rem;
             height: 100%;
-            overflow-y: hidden; /* Hide internal scroll bar */
+            overflow-y: hidden; 
         }
 
         .inventory-slot {
@@ -196,12 +212,12 @@
             fill: none;
         }
         
-        /* New Control Bar Style (Moved from fixed footer) */
+        /* Control Bar Style (Now part of scrollable content) */
         #control-bar {
             width: 100%;
             max-width: 32rem;
             padding: 1rem;
-            background-color: #1e293b; /* Slightly lighter background than header/footer for distinction */
+            background-color: #1e293b; 
             border-radius: 0.75rem;
             margin-top: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -214,15 +230,15 @@
     <!-- Generic Placeholder Favicon -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='90' font-size='90'%3EG%3C/text%3E%3C/svg%3E">
 </head>
-<body class="h-screen w-screen flex flex-col text-slate-100">
+<body class="text-slate-100">
 
-    <header class="w-full p-4 flex justify-between items-center bg-slate-900 border-b border-slate-800 z-20 flex-none h-16">
+    <header class="w-full p-4 flex justify-between items-center bg-slate-900 border-b border-slate-800">
         <div class="flex items-start">
             <div class="flex flex-col">
                 <div class="flex items-center text-xl font-black tracking-wider text-blue-400">
                     <span>GRID LOCH</span>
                 </div>
-                <!-- Timer moved here, with discrete styling matching old subtitle -->
+                <!-- Timer moved to replace the subtitle -->
                 <div id="timerDisplay" class="text-xs font-mono text-slate-500">00:00</div>
             </div>
         </div>
@@ -247,9 +263,7 @@
             
             <div class="inventory-wrapper">
                 <div class="inventory-container shadow-xl">
-                    <div class="flex justify-between items-center h-4 mb-1">
-                        <div class="text-xs text-slate-500 uppercase tracking-widest font-bold flex-1 text-center pl-4">Available Letters</div>
-                    </div>
+                    <!-- Removed title to save space -->
                     <div id="inventory" class="inventory-grid"></div>
                 </div>
             </div>
