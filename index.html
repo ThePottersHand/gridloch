@@ -141,6 +141,7 @@
             transform: scale(1.1); 
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             border-color: #3b82f6;
+            touch-action: none; /* ADDED: Explicitly disable touch actions during drag */
         }
 
         .tile.word-glow {
@@ -474,7 +475,7 @@
         "SLIT","SLOB","SLOG","SLOP","SLOT","SLOW","SLUE","SLUG","SLUM","SLUR","SNAG","SNAP",
         "SNIP","SNOB","SNOG","SNOT","SNOW","SNUB","SNUG","SOAK","SOAP","SOAR","SOBS","SOCK","SODA","SODS","SOFA",
         "SOFT","SOIL","SOLD","SOLE","SOLO","SOMA","SOME","SONG","SONS","SOON","SOOT","SOPS","SORE","SORT","SOSO",
-        "SOTS","SOUL","SOUP","SOUR","SOWN","SOWS","SOY","SPAM","SPAN","SPAR","SPAS","SPAT","SPAY","SPEC","SPED",
+        "SOTS","SOUL","SOUP","SOUR","SOWN","SOWS","CROW","SPAM","SPAN","SPAR","SPAS","SPAT","SPAY","SPEC","SPED",
         "SPEW","SPIN","SPIT","SPOT","SPRY","SPUD","SPUN","SPUR","STAB","STAG","STAR","STAT","STAY","STEM","STEP",
         "STEW","STIR","STOP","STOW","STUB","STUD","STUN","SUCH","DUCK","SUDS","SUED","SUES","SUIT","SULK","SUMO",
         "SUMS","SUNG","SUNK","SUNS","SUPS","SURE","SURF","SWAB","SWAG","SWAM","SWAN","SWAP","SWAT","SWAY","SWIG",
@@ -550,6 +551,8 @@
     let solvedPatterns = new Set(); // ADDED: Tracks currently solved rows/columns
     
     // --- Timer Variables ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
     let startTime = 0;
     let timerInterval = null;
     let elapsedTime = 0;
@@ -654,9 +657,7 @@
     }
 
     // --- Sound Engine ---
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContext();
-
+    
     function playTone(type) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
@@ -827,7 +828,13 @@
     let tileHeight = 0;
 
     function handlePointerDown(e) {
-        e.preventDefault();
+        // FIX: Explicitly resume audio context on the user's first interaction event (pointerdown),
+        // which is often required by mobile browsers to enable audio playback for the session.
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(err => console.error("Audio context resume failed:", err));
+        }
+
+        e.preventDefault(); 
         const target = e.currentTarget;
         
         // This measures the nominal tile size before scaling/transforming
@@ -851,7 +858,7 @@
     }
 
     function handlePointerMove(e) {
-        e.preventDefault();
+        e.preventDefault(); /* FIX: Prevent default scrolling/panning behavior on touch devices */
         if (Math.hypot(e.clientX - startX, e.clientY - startY) > 10 && !isDragging) startDrag(e);
         if (isDragging && dragItem) {
             // When dragging, we center the tile around the pointer
