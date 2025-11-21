@@ -9,12 +9,13 @@
     <style>
         :root {
             --bg-color: #0f172a;
-            --tile-size: clamp(3rem, 12vw, 4.5rem);
+            --tile-nominal-size: clamp(3rem, 12vw, 4.5rem); /* The actual tile dimensions */
+            --buffer-size: 3px; /* Extra space per side for glow/scale (6px total buffer) */
+            --slot-size: calc(var(--tile-nominal-size) + 2 * var(--buffer-size));
             --grid-gap: clamp(0.25rem, 2vw, 0.75rem);
             
-            /* Calculated height for 3 rows of tiles + 2 gaps + top/bottom padding (1rem each) */
-            /* 3 * var(--tile-size) + 2 * var(--grid-gap) + 2rem (for inner padding) */
-            --inventory-height: calc(3 * var(--tile-size) + 2 * var(--grid-gap) + 2rem);
+            /* Calculated height for 3 rows of padded slots + 2 gaps + top/bottom padding (1rem each) */
+            --inventory-height: calc(3 * var(--slot-size) + 2 * var(--grid-gap) + 2rem);
         }
 
         body {
@@ -53,7 +54,7 @@
             justify-content: flex-start;
             padding-top: 0.5rem; 
             padding-bottom: 2rem; 
-            gap: 1rem;
+            gap: 0.75rem; /* MODIFIED: Reduced gap to bring controls closer */
             width: 100%;
             max-width: 500px;
         }
@@ -71,9 +72,10 @@
             flex-shrink: 0;
         }
 
+        /* Cell size is now slightly larger (slot-size) to contain the glow */
         .cell {
-            width: var(--tile-size);
-            height: var(--tile-size);
+            width: var(--slot-size);
+            height: var(--slot-size);
             background: #334155;
             border-radius: 0.5rem;
             position: relative;
@@ -82,11 +84,14 @@
             justify-content: center;
             box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
             cursor: pointer;
+            box-sizing: border-box;
+            padding: var(--buffer-size); /* Add padding buffer */
         }
 
         .tile {
-            width: var(--tile-size);
-            height: var(--tile-size);
+            /* Tile size is fixed to the nominal size */
+            width: var(--tile-nominal-size);
+            height: var(--tile-nominal-size);
             background: #f1f5f9;
             color: #0f172a;
             border-radius: 0.5rem;
@@ -97,8 +102,10 @@
             font-weight: 800;
             cursor: grab;
             position: absolute;
-            top: 0;
-            left: 0;
+            /* New: Center the element absolutely for correct scaling origin */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); 
             z-index: 10;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             transition: transform 0.1s, opacity 0.1s, border-color 0.1s, background-color 0.3s;
@@ -111,7 +118,8 @@
 
         .tile.selected {
             border: 3px solid #facc15;
-            transform: scale(1.1);
+            /* Combine centering transform with scale */
+            transform: translate(-50%, -50%) scale(1.1); 
             z-index: 50;
             box-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
         }
@@ -129,7 +137,8 @@
             z-index: 9999;
             pointer-events: none;
             opacity: 0.9;
-            transform: scale(1.1);
+            /* Transform is handled by JS for positioning, only scale remains */
+            transform: scale(1.1); 
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             border-color: #3b82f6;
         }
@@ -157,7 +166,7 @@
         /* Fixed height based on CSS variables */
         .inventory-container {
             width: 100%;
-            height: var(--inventory-height); /* Set to 3 rows of tiles */
+            height: var(--inventory-height); /* Set to 3 rows of padded slots */
             background: rgba(30, 41, 59, 0.8);
             border: 1px solid #334155;
             border-radius: 0.75rem;
@@ -171,20 +180,25 @@
         .inventory-grid {
             display: flex;
             flex-wrap: wrap;
-            justify-content: center;
-            align-content: flex-start;
+            /* FIX: Justify to the start/left */
+            justify-content: flex-start;
+            /* FIX: Align content to the start/top */
+            align-content: flex-start; 
             gap: 0.5rem;
             height: 100%;
             overflow-y: hidden; 
         }
 
+        /* Inventory slot size is now based on slot-size variable */
         .inventory-slot {
-            width: var(--tile-size);
-            height: var(--tile-size);
+            width: var(--slot-size);
+            height: var(--slot-size);
             background: rgba(255, 255, 255, 0.05);
             border-radius: 0.5rem;
             position: relative;
             flex-shrink: 0;
+            box-sizing: border-box;
+            padding: var(--buffer-size); /* Add padding buffer */
         }
         
         .loader {
@@ -219,11 +233,32 @@
             padding: 1rem;
             background-color: #1e293b; 
             border-radius: 0.75rem;
-            margin-top: 1rem;
+            /* MODIFIED: Reduced margin-top to pull closer to inventory */
+            margin-top: 0.5rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: space-around;
             align-items: center;
+        }
+        
+        /* FIX: Enforce stable height and use dynamic font sizing */
+        #status-msg {
+            /* Text centering and wrapping */
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-word;
+            white-space: normal;
+
+            /* Font size that shrinks from 0.75rem down to 0.6rem if needed */
+            font-size: clamp(0.6rem, 2vw, 0.75rem); 
+            line-height: 1.25;
+
+            /* Fixed dimensions (increased height) to prevent layout shifts */
+            height: 45px; /* Increased from 30px to 45px for 3 lines */
+            max-height: 45px;
+            overflow: hidden; 
         }
     </style>
 
@@ -274,7 +309,7 @@
                     <i data-lucide="lightbulb" class="w-6 h-6"></i>
                     <span class="text-[10px] font-bold uppercase">Hint</span>
                 </button>
-                <div id="status-msg" class="text-center text-xs font-bold text-blue-500 animate-pulse w-32">
+                <div id="status-msg" class="text-center font-bold text-blue-500 animate-pulse w-32">
                     SELECT & PLACE
                 </div>
                 <button id="solveBtn" class="flex flex-col items-center gap-1 text-slate-400 hover:text-green-400 active:text-green-500 transition-colors">
@@ -337,7 +372,7 @@
         "BABE","BABY","BACK","BADS","BAGS","BAIL","BAIT","BAKE","BALD","BALE","BALL","BALM","BAND","BANG","BANK",
         "BARK","BARN","BARS","BASE","BASH","BASS","BATH","BATS","BAYS","BEAK","BEAM","BEAN","BEAR","BEAT","BEAU",
         "BECK","BEDS","BEEF","BEER","BEES","BEGS","BELL","BELT","BEND","BENT","BERG","BEST","BETS","BIAS","BIDS",
-        "BIKE","BILE","BILL","BINS","BIND","BIOG","BIOS","BIRD","BITE","BITS","BLAB","BLAH","BLAM","BLAT","BLED",
+        "BIKE","BILE","BILL","BINS","BIND","BIOS","BIRD","BITE","BITS","BLAB","BLAH","BLAM","BLAT","BLED",
         "BLEW","BLIP","BLOB","BLOG","BLOT","BLOW","BLUE","BLUR","BOAR","BOAT","BOBS","BOCK","BODE","BODY","BOGS",
         "BOIL","BOLD","BOLL","BOLT","BOMB","BOND","BONE","BONG","BONK","BOOK","BOOM","BOON","BOOT","BORA","BORE",
         "BORN","BOSS","BOTH","BOTS","BOUT","BOWL","BOWS","BOYS","BRAG","BRAN","BRAS","BRAT","BRAY","BRED","BREW",
@@ -348,7 +383,7 @@
         "CELL","CENT","CHAD","CHAP","CHAR","CHAT","CHEF","CHEW","CHIC","CHID","CHIN","CHIP","CHOP","CHOW","CHUG",
         "CHUM","CITE","CITY","CLAD","CLAM","CLAN","CLAP","CLAW","CLAY","CLEF","CLIP","CLOG","CLOT","CLUB","CLUE",
         "COAL","COAT","COAX","COBS","COCO","CODE","COGS","COIL","COIN","COKE","COLD","COLT","COMA","COMB",
-        "COME","CONE","CONS","COOK","COOL","COOP","COPS","COPY","CORD","CORE","CORK","CORN","CORP","COST","COTS",
+        "COME","CONE","CONS","COOK","COOL","COOP","COPS","COPY","CORD","CORE","CORK","CORN","COST","COTS",
         "COUP","COVE","COWL","COWS","CRAB","CRAG","CRAM","CRAW","CREW","CRIB","CROP","CROW","CRUX",
         "CUBE","CUBS","CUFF","CULL","CULT","CUPS","CURB","CURD","CURE","CURL","CURT","CUSP","CUTE","CUTS","CYST",
         "DABS","DADS","DAFT","DAIS","DALE","DAME","DAMN","DAMP","DAMS","DANG","DANK","DARE","DARK","DARN","DART",
@@ -356,11 +391,11 @@
         "DEEP","DEER","DEFT","DEFY","DELI","DELL","DEMO","DENS","DENT","DENY","DESK","DEWS","DIAL","DICE","DIED",
         "DIES","DIET","DIGS","DIKE","DIME","DIMS","DINE","DING","DINS","DIPS","DIRE","DIRT","DISC","DISH","DISK",
         "DIVE","DOCK","DOCS","DOER","DOES","DOGS","DOLE","DOLL","DOME","DONE","DOGS","DONS","DOOM","DOOR",
-        "DOPE","DOSE","DOTS","DOUC","DOUG","DOUR","DOVE","DOWN","DOZE","DRAB","DRAG","DRAM","DRAW","DREW","DRIP",
+        "DOPE","DOSE","DOTS","DOUG","DOUR","DOVE","DOWN","DOZE","DRAB","DRAG","DRAM","DRAW","DREW","DRIP",
         "DROP","DRUB","DRUG","DRUM","DUAL","DUCK","DUCT","DUDE","DUDS","DUEL","DUES","DUET","DUFF","DUKE","DULL",
         "DULY","DUMB","DUMP","DUNE","DUNG","DUNK","DUOS","DUPE","DUSK","DUST","DUTY","DYED","DYES","DYKE","EACH",
         "EARL","EARN","EARS","EASE","EAST","EASY","EATS","EBBS","ECHO","ECRU","EDGE","EDIT","EELS","EGGS","EGOS",
-        "EKEG","ELKS","ELLS","EMIT","ENDS","ENGS","ENVY","EONS","EPIC","ERAS","ERGO","ERGS","EROS",
+        "ELLS","EMIT","ENDS","ENVY","EONS","EPIC","ERAS","ERGO","ERGS","EROS",
         "ETCH","EVEN","EVER","EVIL","EWES","EXAM","EXES","EXIT","EYED","EYES","FACE","FACT","FADE",
         "FADS","FAIL","FAIR","FAKE","FALL","FAME","FANG","FANS","FARE","FARM","FAST","FATE","FATS","FAUN",
         "FAWN","FAZE","FEAR","FEAT","FEDS","FEED","FEEL","FEES","FEET","FELL","FELT","FEND","FERN","FEST","FETE",
@@ -400,23 +435,23 @@
         "LUGE","LUGS","LULL","LUMP","LUNG","LURE","LURK","LUSH","LUST","LUTE","LUXE","LYRE","MACE",
         "MADE","MAGS","MAID","MAIL","MAIM","MAIN","MAKE","MALE","MALL","MALT","MAMA","MANE","MANY","MAPS","MARE",
         "MARK","MARS","MART","MASH","MASK","MASS","MAST","MATE","MATH","MATS","MAUL","MAWS","MAXI","MAZE","MEAD",
-        "MEAL","MEAN","MEAT","MECH","MEED","MEEK","MEET","MEGA","MELD","MELT","MEMO","MEND","MENU","MEOW","MERE",
+        "MEAL","MEAN","MEAT","MEED","MEEK","MEET","MEGA","MELD","MELT","MEMO","MEND","MENU","MEOW","MERE",
         "MESA","MESH","MESS","META","MICE","MILD","MILE","MILK","MILL","MIME","MIND","MINE","MINI","MINK",
         "MINT","MIRE","MISS","MIST","MITE","MITT","MOAN","MOAT","MOBS","MOCK","MODE","MOJO","MOLD","MOLE","MOLT",
-        "MOMS","MONK","MONO","MOOD","MOON","MOOR","MOOS","MOOT","MOPE","MOPS","MORE","MORN","MORT","MOSS","MOST",
-        "MOTE","MOTH","MOVE","MOWS","MUCH","MUCK","MUFF","MUGS","MULE","MULL","MUMS","MUSH","MUSK","MUST","MUTE",
+        "MOMS","MONK","MONO","MOOD","MOON","MOOR","MOOS","MOOT","MOPE","MOPS","MORE","MORN","MOSS","MOST",
+        "MOTH","MOVE","MOWS","MUCH","MUCK","MUFF","MUGS","MULE","MULL","MUMS","MUSH","MUSK","MUST","MUTE",
         "MUTT","MYTH","NABS","NAGS","NAIL","NAME","NAPS","NARK","NAVY","NEAR","NEAT","NECK","NEED","NEON",
         "NERD","NEST","NETS","NEWS","NEWT","NEXT","NIBS","NICE","NICK","NIGH","NILE","NINE","NIPS","NODE","NODS",
         "NOEL","NOES","NOIR","NOIS","NOMA","NOMS","NONE","NOOK","NOON","NOPE","NORM","NOSE","NOSY","NOTE","NOUN",
         "NOVA","NUDE","NUKE","NULL","NUMB","NUNS","NUTS","OAFS","OAKS","OARS","OATH","OATS","OBEY","OBOE","ODDS",
         "ODOR","OGRE","OILS","OILY","OINK","OKAY","OKRA","OLDS","OLIO","OMEN","OMIT","ONCE","ONES","ONLY","ONTO",
-        "ONUS","ONYX","OOZE","OPEN","OPUS","ORAL","ORBS","ORGY","ORYX","ORCA","ORES","ORGY","OUNC","OURS","OUST",
+        "ONUS","ONYX","OOZE","OPEN","OPUS","ORAL","ORBS","ORGY","ORCA","ORES","ORGY","OUNC","OURS","OUST",
         "OUTS","OVAL","OVEN","OVER","OWED","OWES","OWLS","OWNS","OXEN","PACE","PACK","PACT","PADS","PAGE","PAID",
         "PAIL","PAIN","PAIR","PALE","PALM","PALS","PANE","PANG","PANS","PANT","PAPA","PARE","PARK","PART","PASS",
         "PAST","PATE","PATH","PATS","PAVE","PAWN","PAWS","PAYS","PEAK","PEAL","PEAR","PEAS","PEAT","PECK","PEEK",
         "PEEL","PEEP","PEER","PEGS","PELT","PENS","PENT","PEON","PEPS","PERK","PERM","PEST","PETS","PEWS","PHAT",
         "PHEW","PICK","PIED","PIER","PIES","PIGS","PIKE","PILE","PILL","PINE","PING","PINK","PINS","PINT",
-        "PIPE","PIPS","PITY","PIXE","PLAN","PLAY","PLEA","PLOD","PLOP","PLOT","PLOW","PLOY","PLUG","PLUM","PLUS",
+        "PIPE","PIPS","PITY","PLAN","PLAY","PLEA","PLOD","PLOP","PLOT","PLOW","PLOY","PLUG","PLUM","PLUS",
         "POCK","PODS","POEM","POET","POKE","POLE","POLL","POLO","POND","PONS","PONY","POOH","POOL",
         "POPE","POPS","PORE","PORK","PORT","POSE","POSH","POST","POSY","POTS","POUR","POUT","PRAM",
         "PRAY","PREP","PREY","PRIM","PROD","PROF","PROM","PROP","PROS","PROW","PUBS","PULL","PULP","PUMA",
@@ -426,12 +461,12 @@
         "RAWS","RAYS","RAZE","RAZZ","READ","REAL","REAM","REAP","REAR","RECK","REDO","REDS","REED","REEF","REEK",
         "REEL","REIN","RELY","REND","RENT","REPS","REST","RIBS","RICE","RICH","RICK","RIDE","RIDS","RIFE","RIFF",
         "RIFT","RIGS","RILE","RIMS","RIND","RING","RINK","RIOT","RIPE","RIPS","RISE","RISK","RITE","RITS","RITZ",
-        "RIVA","RIVE","ROAD","ROAM","ROAN","ROAR","ROBE","ROBS","ROCK","RODE","RODS","ROES","ROIL","ROLE","ROLL",
+        "ROAD","ROAM","ROAN","ROAR","ROBE","ROBS","ROCK","RODE","RODS","ROES","ROIL","ROLE","ROLL",
         "ROMP","ROOF","ROOK","ROOM","ROOT","ROPE","ROSE","ROSY","ROTS","ROUT","ROVE","ROWS","RUBS","RUBY","RUDE",
         "RUE","RUGS","RUIN","RULE","RUNS","RUNT","RUSE","RUSH","RUSK","RUST","RUTS",
         "SACK","SACS","SAFE","SAGA","SAGE","SAID","SAIL","SAKE","SALE","SALT","SAME","SAND","SANE","SANG","SANK",
-        "SANS","SAPS","SASH","SASS","SATE","SAVE","SAWS","SAYS","SCAB","SCAM","SCAN","SCAR","SCAT","SCOT",
-        "SEA","SEAL","SEAM","SEAR","SEAS","SEAT","SECT","SEED","SEEK","SEEM","SEEN","SEEP","SEES","SELF","SELL",
+        "SANS","SAPS","SASH","SASS","SATE","SAVE","SAWS","SAYS","SCAB","SCAM","SCAN","SCAR","SCAT","SEA","SEAL",
+        "SEAM","SEAR","SEAS","SEAT","SECT","SEED","SEEK","SEEM","SEEN","SEEP","SEES","SELF","SELL",
         "SEMI","SEND","SENT","SERF","SETS","SEWN","SEWS","SEXY","SHAD","SHAG","SHAM","SHED","SHES","SHIM","SHIN",
         "SHIP","SHIV","SHOE","SHOO","SHOP","SHOT","SHOW","SHUN","SHUT","SICK","SIDE","SIFT","SIGH","SIGN","SILK",
         "SILL","SILO","SILT","SINE","SING","SINK","SINS","SIPS","SIRE","SIRS","SITE","SITS","SIZE","SKEW","SKID",
@@ -443,7 +478,7 @@
         "SPEW","SPIN","SPIT","SPOT","SPRY","SPUD","SPUN","SPUR","STAB","STAG","STAR","STAT","STAY","STEM","STEP",
         "STEW","STIR","STOP","STOW","STUB","STUD","STUN","SUCH","DUCK","SUDS","SUED","SUES","SUIT","SULK","SUMO",
         "SUMS","SUNG","SUNK","SUNS","SUPS","SURE","SURF","SWAB","SWAG","SWAM","SWAN","SWAP","SWAT","SWAY","SWIG",
-        "SWIM","SWUM","SYNC","TABS","TACH","TACK","TACO","TACT","TADS","TAGS","TAIL","TAKE","TALE","TALK","TALL",
+        "SWIM","SWUM","SYNC","TABS","TACK","TACO","TACT","TADS","TAGS","TAIL","TAKE","TALE","TALK","TALL",
         "TAME","TAMP","TAMS","TANG","TANK","TANS","TAPE","TAPS","TARE","TARP","TART","TASK","TAUT","TAX","TAXI",
         "TEAK","TEAM","TEAR","TEAS","TEAT","TECH","TEED","TEEM","TEEN","TEES","TELL","TEND","TENT","TERM",
         "TEST","TEXT","THAN","THAT","THAW","THEE","THEM","THEN","THEW","THEY","THIN","THIS","THOU","THRO","THRU",
@@ -451,11 +486,11 @@
         "TING","TINS","TINT","TINY","TIPS","TIRE","TOAD","TOED","TOES","TOFU","TOGA","TOGS","TOIL","TOLD","TOLL",
         "TOMB","TOME","TONE","TONG","TONS","TOOK","TOOL","TOOT","TOPS","TORE","TORN","TORT","TOSS","TOTE","TOTS",
         "TOUR","TOUT","TOWN","TOWS","TOYS","TRAM","TRAP","TRAY","TREE","TREK","TRIM","TRIO","TRIP","TROD","TROT",
-        "TROY","TRUE","TUBA","TUBE","TUBS","TUCK","TUFT","TUGS","TUNA","TUNE","TUNS","TURF","TURN","TUSK",
-        "TUTU","TWAS","TWIG","TWIN","TWIT","TWOS","TYKE","TYPE","TYPO","UBER","UGLY","ULNA","UNDO",
+        "TRUE","TUBA","TUBE","TUBS","TUCK","TUFT","TUGS","TUNA","TUNE","TUNS","TURF","TURN","TUSK",
+        "TUTU","TWAS","TWIG","TWIN","TWIT","TWOS","TYKE","TYPE","TYPO","UGLY","ULNA","UNDO",
         "UNIT","UNTO","UPON","URGE","URNS","USED","USER","USES","VAIL","VAIN","VALE","VAMP","VANE","VANS","VARY",
         "VASE","VAST","VATS","VEAL","VEER","VEIL","VEIN","VEND","VENT","VERB","VERY","VEST","VETS","VIAL","VIBE",
-        "VICE","VIDE","VIEW","VIGS","VILE","VINE","VINO","VIOL","VISA","VISE","VITA","VOID","VOLT","VOTE","VOWS",
+        "VICE","VIEW","VIGS","VILE","VINE","VINO","VIOL","VISA","VISE","VITA","VOID","VOLT","VOTE","VOWS",
         "WACK","WADE","WADS","WAFT","WAGE","WAGS","WAIF","WAIL","WAIST","WAIT","WAKE","WALK","WALL","WAND",
         "WANE","WANT","WARD","WARE","WARM","WARN","WARP","WARS","WART","WARY","WASH","WASP","WAST","WATT",
         "WAVE","WAVY","WAX","WAYS","WEAK","WEAL","WEAN","WEAR","WEBS","WEDS","WEED","WEEK","WEEP","WELD","WELL",
@@ -465,7 +500,7 @@
         "WOKE","WOLF","WOMB","WONT","WOOD","WOOF","WOOL","WOOS","WORD","WORE","WORK","WORM","WORN","WOVE","WOWS",
         "WRAP","WREN","WRIT","WRONG","WROTE","YAKS","YAMS","YANK","YARD","YARN","YAWL","YAWN","YEAH","YEAR","YEAS",
         "YELL","YELP","YETI","YEWS","YOGA","YOKE","YOLK","YOND","YORE","YOUR","YOWL","YUCK","YUKS","YULE","ZANY",
-        "ZAPS","ZEAL","ZERO","ZEST","ZINC","ZING","ZION","ZITS","ZONE","ZOOM","ZOOS"
+        "ZAPS","ZEAL","ZERO","ZEST","ZINC","ZING","ZITS","ZONE","ZOOM","ZOOS"
     ];
 
     // Pre-process dictionary for speed
@@ -512,6 +547,7 @@
     let usedWordsInPuzzle = new Set();
     let hintsUsed = 0; 
     let isAutoSolving = false; // NEW FLAG for priority messaging
+    let solvedPatterns = new Set(); // ADDED: Tracks currently solved rows/columns
     
     // --- Timer Variables ---
     let startTime = 0;
@@ -691,6 +727,7 @@
         selectedState = null;
         hintsUsed = 0; 
         isAutoSolving = false; 
+        solvedPatterns.clear(); // ADDED: Reset the solved pattern tracker
 
         document.getElementById('status-msg').innerText = "SELECT & PLACE";
         document.body.style.pointerEvents = 'auto';
@@ -793,9 +830,11 @@
         e.preventDefault();
         const target = e.currentTarget;
         
+        // This measures the nominal tile size before scaling/transforming
         if (tileWidth === 0) {
-            tileWidth = target.offsetWidth;
-            tileHeight = target.offsetHeight;
+            const style = getComputedStyle(target);
+            tileWidth = parseFloat(style.width);
+            tileHeight = parseFloat(style.height);
         }
 
         dragData = { 
@@ -815,8 +854,11 @@
         e.preventDefault();
         if (Math.hypot(e.clientX - startX, e.clientY - startY) > 10 && !isDragging) startDrag(e);
         if (isDragging && dragItem) {
-            dragItem.style.left = (e.clientX - tileWidth / 2) + 'px';
-            dragItem.style.top = (e.clientY - tileHeight / 2) + 'px';
+            // When dragging, we center the tile around the pointer
+            const halfScaledWidth = (tileWidth * 1.1) / 2;
+            const halfScaledHeight = (tileHeight * 1.1) / 2;
+            dragItem.style.left = (e.clientX - halfScaledWidth) + 'px';
+            dragItem.style.top = (e.clientY - halfScaledHeight) + 'px';
             highlightDropTarget(e.clientX, e.clientY);
         }
     }
@@ -832,8 +874,14 @@
         dragItem.classList.add('dragging');
         dragItem.classList.remove('selected');
         
-        dragItem.style.left = (e.clientX - tileWidth / 2) + 'px';
-        dragItem.style.top = (e.clientY - tileHeight / 2) + 'px';
+        // Remove the absolute centering transform when switching to fixed position
+        dragItem.style.transform = 'scale(1.1)'; 
+        
+        // Calculate initial fixed position based on pointer down location and scale factor
+        const halfScaledWidth = (tileWidth * 1.1) / 2;
+        const halfScaledHeight = (tileHeight * 1.1) / 2;
+        dragItem.style.left = (e.clientX - halfScaledWidth) + 'px';
+        dragItem.style.top = (e.clientY - halfScaledHeight) + 'px';
         
         document.body.appendChild(dragItem);
         dragData.originalElement.style.opacity = '0';
@@ -859,12 +907,27 @@
 
     function handleClick() {
         const clickedTile = { index: dragData.index, source: dragData.source, char: dragData.char };
+        
+        // 1. If clicking the already selected tile, deselect it.
         if (selectedState && selectedState.index === clickedTile.index && selectedState.source === clickedTile.source) {
             selectedState = null; playTone('pickup'); render(); return;
         }
+        
+        // 2. If no tile is currently selected, select this one.
         if (!selectedState) {
             selectedState = clickedTile; playTone('pickup'); render(); return;
         }
+
+        // If a tile is already selected (selectedState exists), 
+        // AND the current click is on another inventory tile, treat it as a new selection (swap selection, not letters).
+        if (selectedState.source === 'inventory' && clickedTile.source === 'inventory') {
+            selectedState = clickedTile;
+            playTone('pickup'); 
+            render();
+            return;
+        }
+
+        // 3. Perform move (applies to: grid-to-grid, inventory-to-grid, grid-to-inventory)
         performMove(selectedState, clickedTile);
         selectedState = null;
     }
@@ -924,13 +987,14 @@
     function checkPatterns() {
         document.querySelectorAll('.word-glow').forEach(el => el.classList.remove('word-glow'));
         
-        let matchFound = false;
+        let justSolved = false; // Flag to track new solves only
 
         // Row check (0, 1, 2, 3)
         for(let r=0; r<4; r++) {
             let w = ''; 
             const solutionWord = currentSolution.slice(r*4, r*4+4).join(''); 
             let idxs = [];
+            const patternId = `R${r}`;
             
             for(let c=0; c<4; c++) { 
                 const idx = r * 4 + c;
@@ -938,10 +1002,17 @@
                 idxs.push(idx); 
             }
 
-            // Only glow if the current word exactly matches the solution word for THIS ROW
             if (w === solutionWord) {
                  highlightWord(idxs);
-                 matchFound = true;
+                 if (!solvedPatterns.has(patternId)) { // Check if pattern is newly solved
+                     solvedPatterns.add(patternId);
+                     justSolved = true;
+                 }
+            } else {
+                 // If the word is now broken, remove it from the solved set
+                 if (solvedPatterns.has(patternId)) {
+                     solvedPatterns.delete(patternId);
+                 }
             }
         }
 
@@ -950,6 +1021,7 @@
             let w = '';
             let solutionWord = '';
             let idxs = [];
+            const patternId = `C${c}`;
             
             for(let r=0; r<4; r++) { 
                 const idx = r * 4 + c;
@@ -958,15 +1030,22 @@
                 idxs.push(idx); 
             }
             
-            // Only glow if the current word exactly matches the solution word for THIS COLUMN
             if (w === solutionWord) {
                  highlightWord(idxs);
-                 matchFound = true;
+                 if (!solvedPatterns.has(patternId)) { // Check if pattern is newly solved
+                     solvedPatterns.add(patternId);
+                     justSolved = true;
+                 }
+            } else {
+                 // If the word is now broken, remove it from the solved set
+                 if (solvedPatterns.has(patternId)) {
+                     solvedPatterns.delete(patternId);
+                 }
             }
         }
         
-        // Play match tone only if a word is correctly placed
-        if (matchFound) playTone('match'); 
+        // Play match tone only if a NEW word was correctly placed in this turn
+        if (justSolved) playTone('match'); 
 
         checkWin(true);
     }
@@ -1066,7 +1145,11 @@
         isAutoSolving = true; // Set flag to prevent user win logic from running
         const solveTime = formatTime(elapsedTime);
 
-        document.getElementById('status-msg').innerText = "SOLVING...";
+        // --- NEW LOGIC: Set Status Message during Solve ---
+        const sarcasticMsgTemplate = SARCASTIC_MESSAGES.SOLVE[Math.floor(Math.random() * SARCASTIC_MESSAGES.SOLVE.length)];
+        document.getElementById('status-msg').innerText = sarcasticMsgTemplate;
+        // --- END NEW LOGIC ---
+
         document.body.style.pointerEvents = 'none';
         selectedState = null; render();
 
@@ -1106,10 +1189,6 @@
         const nessieIcon = document.getElementById('nessie-icon');
         if (nessieIcon) nessieIcon.src = IMAGE_PATHS.autoSolve;
         
-        // Sarcastic Solve Message, emphasizing program's speed
-        const sarcasticMsgTemplate = SARCASTIC_MESSAGES.SOLVE[Math.floor(Math.random() * SARCASTIC_MESSAGES.SOLVE.length)];
-        document.getElementById('status-msg').innerText = sarcasticMsgTemplate;
-        
         // Prepare modal for auto-solve
         document.querySelector('#modal-content h2').innerText = "AUTO-SOLVED";
         document.querySelector('#modal-content p').innerText = `I solved it in ${solveTime}. It seems one of us is a grid master! Try a new puzzle without the emergency button next time.`;
@@ -1128,6 +1207,9 @@
         modal.classList.remove('opacity-0');
         
         isAutoSolving = false; // Reset flag after modal is displayed
+
+        // Restore default message AFTER the modal is shown/transitioned
+        document.getElementById('status-msg').innerText = "SOLVED!";
     }
 
     document.getElementById('newGameBtn').addEventListener('click', () => { playTone('pickup'); initGame(); });
