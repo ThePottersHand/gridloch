@@ -282,6 +282,7 @@
         <!-- Adjusted button group for responsive sizing and color -->
         <div class="flex items-center gap-2 w-1/2 sm:w-auto">
             <select id="difficulty" class="flex-1 bg-slate-800 text-sm text-blue-400 p-2 rounded border border-slate-700 outline-none focus:border-blue-500 min-w-[70px]">
+                <option value="daily">Daily</option> <!-- ADDED: Daily option -->
                 <option value="easy">Easy</option>
                 <option value="medium" selected>Medium</option>
                 <option value="hard">Hard</option>
@@ -558,6 +559,43 @@
     let elapsedTime = 0;
 
     // --- Utility Functions ---
+    
+    // --- START Stable LCG PRNG Implementation ---
+    let seed = 1;
+
+    function hashString(str) {
+        let h = 0;
+        const s = String(str);
+        for (let i = 0; i < s.length; i++) {
+            h = s.charCodeAt(i) + ((h << 5) - h);
+        }
+        // Convert to positive 32-bit integer, ensuring it's not zero
+        return (h >>> 0) || 1; 
+    }
+
+    function setSeed(s) {
+        seed = hashString(s);
+    }
+
+    function seededRandom() {
+        // Simple LCG with robust constants
+        const a = 1664525;
+        const c = 1013904223;
+        // The modulo 2^32 is implicit in JS bitwise operations, but we use >>> 0 for explicit 32-bit positive integer math.
+        seed = (seed * a + c) >>> 0;
+        // Normalize to [0, 1) range
+        return seed / 0x100000000; 
+    }
+    
+    function getDailySeed() {
+        const date = new Date();
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}${m}${d}`;
+    }
+
+    // --- END Stable LCG PRNG Implementation ---
 
     function formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
@@ -589,11 +627,14 @@
 
     // --- Generator Logic (Improved Backtracking) ---
     
-    function generatePuzzle() {
+    function generatePuzzle(customSeed = Math.random()) { // Modified to accept seed
+        setSeed(customSeed); // Set seed for deterministic shuffling
+        
         const rows = [];
         usedWordsInPuzzle.clear();
         
-        const shuffled = fisherYatesShuffle([...COMMON_WORDS]);
+        // Use seeded random for the initial word list shuffle
+        const shuffled = fisherYatesShuffle([...COMMON_WORDS]); 
         
         if (solveRow(0, rows, shuffled)) {
             return rows.join('').split('');
@@ -603,8 +644,10 @@
     }
 
     function fisherYatesShuffle(array) {
+        // Uses the seeded random number generator
         for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            // Using seededRandom instead of Math.random
+            const j = Math.floor(seededRandom() * (i + 1)); 
             [array[i], array[j]] = [array[j], array[i]]; 
         }
         return array;
@@ -715,13 +758,20 @@
         document.getElementById('nessie-icon').src = ''; 
         
         setTimeout(() => {
-            currentSolution = generatePuzzle();
-            setupBoard();
+            const diff = document.getElementById('difficulty').value;
+            let puzzleSeed = Math.random(); // Default to truly random
+
+            if (diff === 'daily') {
+                puzzleSeed = getDailySeed(); // Use date for daily seed
+            }
+            
+            currentSolution = generatePuzzle(puzzleSeed); // Generate based on seed
+            setupBoard(puzzleSeed); // Pass the same seed for tile distribution
             startTimer(); // Start timer after board setup
         }, 50);
     }
 
-    function setupBoard() {
+    function setupBoard(puzzleSeed) { // Modified to accept seed
         gridState = Array(16).fill(null);
         lockedIndices.clear();
         inventory = [];
@@ -738,12 +788,17 @@
         if (diff === 'easy') keepCount = 8;
         if (diff === 'hard') keepCount = 3;
 
+        // Reset seed specifically for tile and inventory distribution randomness
+        setSeed(puzzleSeed + 'LAYOUT');
+        
         const indices = Array.from({length: 16}, (_, i) => i);
+        
+        // Use seeded shuffle for tile distribution
         for (let i = indices.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(seededRandom() * (i + 1));
             [indices[i], indices[j]] = [indices[j], indices[i]];
         }
-
+        
         for (let i = 0; i < keepCount; i++) {
             const idx = indices[i];
             gridState[idx] = currentSolution[idx];
@@ -753,7 +808,10 @@
         for (let i = keepCount; i < 16; i++) {
             inventory.push(currentSolution[indices[i]]);
         }
-        inventory.sort(() => Math.random() - 0.5);
+        
+        // Use seeded sort for inventory order
+        setSeed(puzzleSeed + 'INV'); 
+        inventory.sort(() => seededRandom() - 0.5);
 
         render();
         checkWin(false);
