@@ -377,7 +377,7 @@
                 </svg>
             </div>
             <h1 class="text-5xl font-black text-white tracking-widest drop-shadow-2xl mb-2">GRID LOCH</h1>
-            <p class="text-slate-400 text-sm tracking-wide">INFINITE WORD PUZZLES</p>
+            <p id="game-subtitle" class="text-slate-400 text-sm tracking-wide h-5 transition-opacity duration-300">INFINITE WORD PUZZLES</p>
         </div>
 
         <!-- DAILY BUTTON CONTAINER -->
@@ -639,6 +639,37 @@
         PREFIX_SET.add(w);
     });
 
+    // --- Rotating Puns ---
+    const PUNS = [
+        "A bonnie little word game",
+        "Solving is no myth",
+        "Unleash the word monster",
+        "A wee bit of logic",
+        "Legendary word puzzles",
+        "Nessie's favorite game",
+        "Barely Scottish, mostly logic",
+        "The monster is the algorithm",
+        "Grid Loch: Now with 0% actual water",
+        "Just a grid with a cool name",
+        "Warning: May contain letters",
+        "Words deeper than the Loch",
+        "Ye cannae solve it? Try a hint!"
+    ];
+
+    let lastPunIdx = -1;
+
+    function setMenuPun() {
+        const el = document.getElementById('game-subtitle');
+        let idx;
+        // Ensure we don't repeat the same pun twice in a row
+        do {
+            idx = Math.floor(Math.random() * PUNS.length);
+        } while (idx === lastPunIdx && PUNS.length > 1);
+        
+        lastPunIdx = idx;
+        el.innerText = PUNS[idx];
+    }
+
     // --- Sarcastic Messages ---
     const SARCASTIC_MESSAGES = {
         HINT: [
@@ -817,8 +848,9 @@
             
             const h = Math.floor(diff / (1000 * 60 * 60));
             const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
             
-            const timeStr = `${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m`;
+            const timeStr = `${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
             
             element.innerHTML = `
                 <div class="flex flex-col items-center">
@@ -829,7 +861,7 @@
         };
         
         updateTimer();
-        countdownInterval = setInterval(updateTimer, 60000); 
+        countdownInterval = setInterval(updateTimer, 1000); 
     }
 
     function openDailyScoreboard() {
@@ -892,12 +924,17 @@
     }
 
     function showMenu(instant = false) {
-        // Save current game before quitting
-        if (currentSolution.length > 0 && !isAutoSolving) {
+        // Save current game before quitting, BUT ONLY IF NOT WON.
+        // If won, checkWin already saved the "Complete" state.
+        // Saving again here risks overwriting with a state where logic might be resetting.
+        if (currentSolution.length > 0 && !isAutoSolving && !isGameWon) {
             saveGameState();
         }
         
         pauseTimer();
+        
+        // Rotate the pun when returning to menu
+        setMenuPun();
         
         const overlay = document.getElementById('startup-overlay');
         overlay.style.display = 'flex';
@@ -1108,13 +1145,20 @@
         }
 
         // 5. Restore or Create Game
-        if (savedState && !savedState.isComplete) {
+        // DEFENSIVE CHECK: Detect if a "Won" game was saved as "Incomplete" by mistake
+        let actuallyWon = false;
+        if (savedState && !savedState.isComplete && savedState.currentSolution && savedState.gridState) {
+             const isFullMatch = savedState.gridState.every((char, i) => char === savedState.currentSolution[i]);
+             if (isFullMatch) actuallyWon = true;
+        }
+
+        if (savedState && !savedState.isComplete && !actuallyWon) {
             restoreGame(savedState, true);
             if (onReady) onReady();
         } else {
             // If daily is complete, we shouldn't even be here due to menu logic,
             // but just in case, start fresh or handle normally.
-            // For practice modes, start fresh if no save.
+            // For practice modes, start fresh if no save OR if save was actually won.
             initNewGame(mode, onReady);
         }
         
@@ -1171,7 +1215,7 @@
         isGameWon = false;
         finalScore = 0;
         
-        // Removed setTimeout - Execute Immediately
+        // NO TIMEOUT
         let puzzleSeed = Math.random(); 
         if (mode === 'daily') {
             puzzleSeed = getDailySeed(); 
@@ -1385,7 +1429,10 @@
             playTone('drop'); 
             render(); 
             // Save on every valid move
-            saveGameState();
+            // If the move caused a win, render() -> checkPatterns() -> checkWin() -> isGameWon=true.
+            // If we save again here, we are just confirming the win. 
+            // However, to be absolutely safe:
+            if (!isGameWon) saveGameState(); 
         }
     }
 
@@ -1404,7 +1451,7 @@
             inventory.push(dragData.char); 
             playTone('drop'); 
             render();
-            saveGameState();
+            if (!isGameWon) saveGameState();
         } else { 
             cancelDrag(); 
         }
@@ -1809,7 +1856,7 @@
             playTone('drop');
             selectedState = null;
             render();
-            saveGameState();
+            if (!isGameWon) saveGameState();
         } else {
             selectedState = null;
             playTone('pickup');
@@ -1818,7 +1865,7 @@
     });
 
     lucide.createIcons();
-    // Initial Menu Update
+    setMenuPun(); // Set initial pun
     updateMenuUI();
 </script>
 </body>
