@@ -9,10 +9,12 @@
     <style>
         :root {
             --bg-color: #0f172a;
-            --tile-nominal-size: clamp(3rem, 12vw, 4.5rem); /* The actual tile dimensions */
+            /* MODIFIED: Reduced max size from 4.5rem to 3.5rem to prevent desktop scrolling */
+            /* Min size set to 2.75rem (~44px) for reliable touch targets */
+            --tile-nominal-size: clamp(2.75rem, 12vw, 3.5rem); 
             --buffer-size: 3px; /* Extra space per side for glow/scale (6px total buffer) */
             --slot-size: calc(var(--tile-nominal-size) + 2 * var(--buffer-size));
-            --grid-gap: clamp(0.25rem, 2vw, 0.75rem);
+            --grid-gap: clamp(0.25rem, 2vw, 0.6rem);
             
             /* Calculated height for 3 rows of padded slots + 2 gaps + top/bottom padding (1rem each) */
             --inventory-height: calc(3 * var(--slot-size) + 2 * var(--grid-gap) + 2rem);
@@ -152,6 +154,30 @@
             border-color: #60a5fa;
         }
 
+        /* NEW: Triumph flash animation */
+        .tile.triumph {
+            animation: triumph-flash 0.8s 2 ease-in-out; 
+        }
+
+        @keyframes triumph-flash {
+            0%, 100% { background-color: #3b82f6; box-shadow: 0 0 15px #facc15; }
+            50% { background-color: #facc15; box-shadow: 0 0 25px #3b82f6; }
+        }
+
+        /* NEW: Error Shake for valid but incorrect words */
+        .tile.word-error {
+            animation: error-shake 0.5s ease-in-out;
+        }
+
+        @keyframes error-shake {
+            0%, 100% { transform: translate(-50%, -50%); border-color: transparent; }
+            15% { transform: translate(calc(-50% - 4px), -50%); border-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+            30% { transform: translate(calc(-50% + 4px), -50%); border-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+            45% { transform: translate(calc(-50% - 4px), -50%); border-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+            60% { transform: translate(calc(-50% + 4px), -50%); border-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+            75% { transform: translate(calc(-50% - 4px), -50%); border-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+        }
+
         .highlight {
             background-color: rgba(59, 130, 246, 0.3);
             box-shadow: 0 0 0 2px #3b82f6;
@@ -261,12 +287,126 @@
             max-height: 45px;
             overflow: hidden; 
         }
+
+        /* Scorecard styling for the solved grid */
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.5rem;
+            max-width: 10rem;
+            margin: 1rem auto;
+        }
+        .score-cell {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .score-cell.locked {
+            background-color: #020617; /* Black (Slate 950) for Locked/Hints/Auto */
+            border: 1px solid #334155;
+        }
+        .score-cell.correct {
+            background-color: #94a3b8; /* Gray (Slate 400) for Standard Solve (Failed First Try) */
+        }
+        .score-cell.semi-perfect {
+            background-color: #3b82f6; /* Blue for One-Way First Try */
+        }
+        .score-cell.perfect {
+            background-color: #facc15; /* Yellow for Perfect First Try (Both Ways) */
+            box-shadow: 0 0 5px rgba(250, 204, 21, 0.5);
+        }
+
+        /* Modal styling update to ensure interactions work */
+        #modal {
+            pointer-events: auto !important;
+        }
+
+        /* Score Key Styling */
+        .score-key {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+        .score-key-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .key-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+        
+        /* Overlay Animations */
+        .fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* Disabled button state for Daily Reset */
+        .btn-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
     </style>
 
     <!-- Generic Placeholder Favicon -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='90' font-size='90'%3EG%3C/text%3E%3C/svg%3E">
 </head>
 <body class="text-slate-100">
+
+    <!-- STARTUP OVERLAY -->
+    <div id="startup-overlay" class="fixed inset-0 bg-slate-900 z-[200] flex flex-col items-center justify-center p-4 transition-opacity duration-500">
+        <div class="text-center mb-10">
+            <div class="flex items-center justify-center mb-4 text-blue-500">
+                <!-- Simple Grid Icon (Updated to 4x4) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="2"/>
+                    <path d="M2 7h20M2 12h20M2 17h20M7 2v20M12 2v20M17 2v20"/>
+                </svg>
+            </div>
+            <h1 class="text-5xl font-black text-white tracking-widest drop-shadow-2xl mb-2">GRID LOCH</h1>
+            <p class="text-slate-400 text-sm tracking-wide">INFINITE WORD PUZZLES</p>
+        </div>
+
+        <!-- DAILY BUTTON CONTAINER -->
+        <div id="daily-btn-container" class="w-full max-w-xs mb-8">
+            <button id="btn-daily-start" onclick="startGame('daily')" class="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-bold py-4 px-8 rounded-xl shadow-lg transform transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:rotate-12 transition-transform"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span class="text-center">DAILY CHALLENGE</span>
+            </button>
+        </div>
+
+        <div class="flex items-center w-full max-w-xs mb-6 opacity-60">
+            <div class="h-px bg-slate-600 flex-1"></div>
+            <span class="px-4 text-slate-400 text-xs font-bold uppercase tracking-widest">Practice Mode</span>
+            <div class="h-px bg-slate-600 flex-1"></div>
+        </div>
+
+        <div class="flex gap-3 w-full max-w-xs">
+            <button onclick="startGame('easy')" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 text-blue-400 font-bold py-3 rounded-lg transition-all active:scale-95">
+                Easy
+            </button>
+            <button onclick="startGame('medium')" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 text-blue-400 font-bold py-3 rounded-lg transition-all active:scale-95">
+                Medium
+            </button>
+            <button onclick="startGame('hard')" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 text-blue-400 font-bold py-3 rounded-lg transition-all active:scale-95">
+                Hard
+            </button>
+        </div>
+    </div>
+    <!-- END STARTUP OVERLAY -->
 
     <header class="w-full p-4 flex justify-between items-center bg-slate-900 border-b border-slate-800">
         <div class="flex items-start">
@@ -279,14 +419,11 @@
             </div>
         </div>
         
-        <!-- Adjusted button group for responsive sizing and color -->
-        <div class="flex items-center gap-2 w-1/2 sm:w-auto">
-            <select id="difficulty" class="flex-1 bg-slate-800 text-sm text-blue-400 p-2 rounded border border-slate-700 outline-none focus:border-blue-500 min-w-[70px]">
-                <option value="daily">Daily</option> <!-- ADDED: Daily option -->
-                <option value="easy">Easy</option>
-                <option value="medium" selected>Medium</option>
-                <option value="hard">Hard</option>
-            </select>
+        <!-- Adjusted button group -->
+        <div class="flex items-center gap-2 w-1/2 sm:w-auto justify-end">
+            <button id="menuBtn" class="bg-slate-800 text-sm text-blue-400 px-3 py-2 rounded border border-slate-700 hover:border-blue-500 transition-colors font-bold">
+                MENU
+            </button>
             <button id="newGameBtn" class="p-2 bg-blue-600 rounded hover:bg-blue-500 text-white shadow-lg active:transform active:scale-95 transition-all flex-shrink-0">
                 <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
             </button>
@@ -323,49 +460,36 @@
         </div>
     </main>
 
-    <div id="modal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm">
+    <div id="modal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-[300] hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm">
         <div class="bg-slate-800 p-8 rounded-2xl border-2 border-blue-500 text-center shadow-2xl transform scale-90 transition-transform duration-300 max-w-sm w-full mx-4" id="modal-content">
-            <div class="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400" id="modal-icon-container">
-                <!-- Image for modal success/failure state -->
-                <img id="nessie-icon" class="w-full h-full object-contain" src="" alt="Loch Ness Monster Icon" onerror="loadNessieFallback(this)">
+            
+            <!-- NEW: Score Display -->
+            <div class="flex flex-col items-center mb-4">
+                <div id="final-score" class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-sm">0</div>
+                <div class="text-xs font-bold tracking-widest text-slate-500 uppercase mt-1">Total Score</div>
             </div>
-            <h2 class="text-3xl font-black text-white mb-2">SOLVED!</h2>
-            <p class="text-slate-400 mb-6">You've mastered this grid.</p>
-            <button id="playAgainBtn" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg font-bold shadow-lg w-full transition-colors">
-                Next Puzzle
-            </button>
+
+            <!-- Replaced Icon Container with Score Grid Container -->
+            <div id="modal-score-container" class="score-grid mx-auto"></div>
+            
+            <!-- NEW: Legend/Key -->
+            <div id="score-legend" class="score-key mb-6"></div>
+            
+            <h2 class="text-2xl font-black text-white mb-2">SOLVED!</h2>
+            <p class="text-slate-400 mb-6 text-sm">You've mastered this grid.</p>
+            
+            <div class="flex flex-col gap-2 w-full">
+                <button id="playAgainBtn" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg font-bold shadow-lg w-full transition-colors">
+                    Next Puzzle
+                </button>
+                <button id="modalMenuBtn" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg font-bold shadow-lg w-full transition-colors">
+                    Return to Menu
+                </button>
+            </div>
         </div>
     </div>
 
 <script>
-    // --- Image Asset Paths (Assumed to be hosted in /images/) ---
-    const IMAGE_PATHS = {
-        'easy': './images/nessie-easy-win.png',
-        'medium': './images/nessie-medium-win.png',
-        'hard': './images/nessie-hard-win.png',
-        'autoSolve': './images/nessie-auto-solve.png'
-    };
-
-    /**
-     * Fallback function to display a simple SVG if the external image fails to load.
-     * @param {HTMLImageElement} imgElement - The failed image element.
-     */
-    function loadNessieFallback(imgElement) {
-        // Prevent infinite loop if the fallback itself somehow causes an error
-        imgElement.onerror = null; 
-
-        // Simple Loch Ness Monster SVG (Generic Success Icon)
-        const fallbackSVG = `
-            <svg class="nessie-fallback-icon" viewBox="0 0 100 100" fill="#38bdf8" stroke="#0e7490">
-                <path d="M5 80 Q 25 50, 40 60 Q 55 70, 75 40 Q 95 30, 98 60" fill="none" stroke-width="4"/>
-                <circle cx="85" cy="40" r="8" fill="currentColor" stroke-width="4"/>
-                <path d="M5 80 H 98" stroke="#60a5fa" stroke-width="2"/>
-            </svg>
-        `;
-        const container = imgElement.parentElement;
-        container.innerHTML = fallbackSVG;
-    }
-
     // --- Expanded Dictionary (~2000 Common Words) - Sanitized ---
     const COMMON_WORDS = [
         "ABLE","ACID","ACME","ACRE","ACTS","ADDS","AGES","AIDE","AIDS","AIMS","AIRS","ALAS","ALLY","ALMS","ALSO",
@@ -534,33 +658,266 @@
         SOLVE: [
             "Phew! That was a close one, but *I* nailed it.",
             "Great job! (Manual override activated.)",
-            "Puzzle solved. Your effort level: Minimum. My processing power: Optimal.",
-            "Don't strain yourself. I'll handle the hard stuff (which was everything).",
-            "You earned that win... by clicking the 'I quit' button."
+            "Solved. Effort: Minimum. Power: Optimal.",
+            "Don't strain yourself. I'll handle the hard stuff.",
+            "You earned that win... by clicking the button."
         ]
     };
 
-    // --- State Variables ---
+    // --- Global Variables & State ---
+    let currentMode = 'medium';
+    let isGameWon = false; // Tracks if current session is complete
+    let finalScore = 0;    // Tracks score of current completed session
+    
+    // Storage Keys
+    const STORAGE_KEY = 'gridLochData';
+
+    // Game State Variables
     let currentSolution = [];
     let gridState = Array(16).fill(null);
     let inventory = [];
     let lockedIndices = new Set();
+    
+    let failedRows = new Set();
+    let failedCols = new Set();
+    let processedPatterns = new Set();
+
     let selectedState = null;
     let usedWordsInPuzzle = new Set();
     let hintsUsed = 0; 
-    let isAutoSolving = false; // NEW FLAG for priority messaging
-    let solvedPatterns = new Set(); // ADDED: Tracks currently solved rows/columns
+    let isAutoSolving = false; 
+    let solvedPatterns = new Set();
+    let errorPatterns = new Set();
     
-    // --- Timer Variables ---
+    // Timer Variables
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
     let startTime = 0;
     let timerInterval = null;
     let elapsedTime = 0;
 
+    // --- Persistence Logic ---
+
+    function getStoredData() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        } catch(e) {
+            return {};
+        }
+    }
+
+    function saveGameState() {
+        const data = getStoredData();
+        
+        // Save current state for current mode
+        data[currentMode] = {
+            gridState: gridState,
+            inventory: inventory,
+            lockedIndices: [...lockedIndices],
+            failedRows: [...failedRows],
+            failedCols: [...failedCols],
+            processedPatterns: [...processedPatterns],
+            solvedPatterns: [...solvedPatterns],
+            errorPatterns: [...errorPatterns],
+            currentSolution: currentSolution,
+            elapsedTime: elapsedTime,
+            hintsUsed: hintsUsed,
+            seed: currentMode === 'daily' ? getDailySeed() : null, // Store seed for validation
+            isComplete: isGameWon, // Use global flag
+            finalScore: finalScore // Use global flag
+        };
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function clearModeState(mode) {
+        const data = getStoredData();
+        delete data[mode];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // Check daily validity
+    function checkDailyReset() {
+        const data = getStoredData();
+        const todaySeed = getDailySeed();
+        
+        if (data.daily) {
+            if (data.daily.seed !== todaySeed) {
+                // New day, clear old daily data
+                delete data.daily;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            }
+        }
+        return data;
+    }
+
+    // --- Menu UI Logic ---
+    
+    function updateMenuUI() {
+        const data = checkDailyReset();
+        const startBtn = document.getElementById('btn-daily-start');
+        const btnTextSpan = startBtn.querySelector('span');
+        const btnIcon = startBtn.querySelector('svg');
+
+        // Check if daily is complete
+        if (data.daily && data.daily.isComplete) {
+            // --- STATE: COMPLETED ---
+            
+            // Remove active styling
+            startBtn.classList.remove('from-yellow-500', 'to-yellow-600', 'hover:from-yellow-400', 'hover:to-yellow-500', 'hover:scale-105', 'active:scale-95');
+            
+            // Add disabled/completed styling
+            startBtn.classList.add('from-slate-700', 'to-slate-800', 'opacity-100', 'cursor-pointer'); 
+            
+            // Interaction: Enable click to view score, but disable game start
+            startBtn.onclick = openDailyScoreboard;
+            startBtn.disabled = false; 
+            
+            // Icon: Hide
+            if(btnIcon) btnIcon.style.display = 'none';
+
+            // Content: Start Countdown Timer (updates text)
+            startDailyCountdown(btnTextSpan, data.daily.finalScore);
+            
+        } else {
+            // --- STATE: ACTIVE ---
+            
+            // Remove disabled styling
+            startBtn.classList.remove('from-slate-700', 'to-slate-800', 'opacity-100', 'cursor-pointer');
+            
+            // Restore active styling
+            startBtn.classList.add('from-yellow-500', 'to-yellow-600', 'hover:from-yellow-400', 'hover:to-yellow-500', 'hover:scale-105', 'active:scale-95');
+            
+            // Interaction: Enable click
+            startBtn.onclick = () => startGame('daily');
+            startBtn.disabled = false;
+            
+            // Icon: Show
+            if(btnIcon) btnIcon.style.display = 'block';
+            
+            // Content: Reset Text
+            if(countdownInterval) clearInterval(countdownInterval);
+            btnTextSpan.innerHTML = "DAILY CHALLENGE";
+        }
+    }
+
+    let countdownInterval = null;
+    function startDailyCountdown(element, score) {
+        if (countdownInterval) clearInterval(countdownInterval);
+        
+        const updateTimer = () => {
+            const now = new Date();
+            const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+            const diff = tomorrow - now;
+            
+            if (diff <= 0) {
+                updateMenuUI(); // Refresh UI when timer hits 0
+                return;
+            }
+            
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            const timeStr = `${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m`;
+            
+            element.innerHTML = `
+                <div class="flex flex-col items-center">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Daily Complete • Score: <span class="text-white">${score}</span></div>
+                    <div class="text-lg font-mono text-slate-200 tracking-wide">NEXT IN ${timeStr}</div>
+                </div>
+            `;
+        };
+        
+        updateTimer();
+        countdownInterval = setInterval(updateTimer, 60000); 
+    }
+
+    function openDailyScoreboard() {
+        const data = getStoredData();
+        if (data.daily) {
+            const state = data.daily;
+            currentMode = 'daily';
+
+            // 1. Hydrate State (Logic only, no DOM rendering, NO AUDIO)
+            elapsedTime = state.elapsedTime || 0;
+            hintsUsed = state.hintsUsed || 0;
+            currentSolution = state.currentSolution;
+            finalScore = state.finalScore || 0;
+            isGameWon = state.isComplete || false;
+            
+            // Determine if it was auto-solved based on score
+            isAutoSolving = (finalScore === 0); 
+
+            // Reconstruct Sets
+            lockedIndices = new Set(state.lockedIndices);
+            failedRows = new Set(state.failedRows);
+            failedCols = new Set(state.failedCols);
+            processedPatterns = new Set(state.processedPatterns);
+            solvedPatterns = new Set(state.solvedPatterns);
+            errorPatterns = new Set(state.errorPatterns);
+            
+            gridState = state.gridState;
+            inventory = state.inventory; 
+
+            // 2. Prepare Modal Content
+            renderScoreGrid();
+            const modal = document.getElementById('modal');
+            
+            // Restore Message
+            if (state.winMessage) {
+                document.querySelector('#modal-content p').innerText = state.winMessage;
+            } else {
+                document.querySelector('#modal-content p').innerText = "Daily Challenge Completed.";
+            }
+            
+            if (isAutoSolving) {
+                 document.querySelector('#modal-content h2').innerText = "AUTO-SOLVED";
+            } else {
+                 document.querySelector('#modal-content h2').innerText = "SOLVED!";
+            }
+
+            // Hide "Next Puzzle" button since it's daily
+            document.getElementById('playAgainBtn').style.display = 'none';
+            
+            // 3. Show Modal (Keep Menu/Overlay Visible behind it)
+            modal.classList.remove('hidden');
+            // Use RAF to ensure transition works after removing hidden
+            requestAnimationFrame(() => {
+                modal.classList.remove('opacity-0');
+            });
+            
+            // NOTE: We explicitly do NOT hide 'startup-overlay' here.
+            // This keeps the menu visible in the background.
+        }
+    }
+
+    function showMenu(instant = false) {
+        // Save current game before quitting
+        if (currentSolution.length > 0 && !isAutoSolving) {
+            saveGameState();
+        }
+        
+        pauseTimer();
+        
+        const overlay = document.getElementById('startup-overlay');
+        overlay.style.display = 'flex';
+        
+        if (instant) {
+            overlay.classList.remove('opacity-0');
+            overlay.style.pointerEvents = 'auto';
+        } else {
+            // Small delay to allow display:flex to apply before opacity transition
+            setTimeout(() => {
+                overlay.classList.remove('opacity-0');
+                overlay.style.pointerEvents = 'auto';
+            }, 10);
+        }
+
+        updateMenuUI();
+    }
+
     // --- Utility Functions ---
     
-    // --- START Stable LCG PRNG Implementation ---
     let seed = 1;
 
     function hashString(str) {
@@ -569,7 +926,6 @@
         for (let i = 0; i < s.length; i++) {
             h = s.charCodeAt(i) + ((h << 5) - h);
         }
-        // Convert to positive 32-bit integer, ensuring it's not zero
         return (h >>> 0) || 1; 
     }
 
@@ -578,24 +934,19 @@
     }
 
     function seededRandom() {
-        // Simple LCG with robust constants
         const a = 1664525;
         const c = 1013904223;
-        // The modulo 2^32 is implicit in JS bitwise operations, but we use >>> 0 for explicit 32-bit positive integer math.
         seed = (seed * a + c) >>> 0;
-        // Normalize to [0, 1) range
         return seed / 0x100000000; 
     }
     
     function getDailySeed() {
         const date = new Date();
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
+        const y = date.getUTCFullYear();
+        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(date.getUTCDate()).padStart(2, '0');
         return `${y}${m}${d}`;
     }
-
-    // --- END Stable LCG PRNG Implementation ---
 
     function formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
@@ -616,7 +967,6 @@
     function pauseTimer() {
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = null;
-        // elapsedTime is already updated by the interval function
     }
 
     function resetTimer() {
@@ -625,28 +975,19 @@
         document.getElementById('timerDisplay').innerText = "00:00";
     }
 
-    // --- Generator Logic (Improved Backtracking) ---
+    // --- Logic ---
     
-    function generatePuzzle(customSeed = Math.random()) { // Modified to accept seed
-        setSeed(customSeed); // Set seed for deterministic shuffling
-        
+    function generatePuzzle(customSeed = Math.random()) {
+        setSeed(customSeed); 
         const rows = [];
         usedWordsInPuzzle.clear();
-        
-        // Use seeded random for the initial word list shuffle
         const shuffled = fisherYatesShuffle([...COMMON_WORDS]); 
-        
-        if (solveRow(0, rows, shuffled)) {
-            return rows.join('').split('');
-        }
-        // Fallback only if generation fails (should be rare now)
+        if (solveRow(0, rows, shuffled)) return rows.join('').split('');
         return ['TIME','IDEA','MEAL','EARN'].join('').split('');
     }
 
     function fisherYatesShuffle(array) {
-        // Uses the seeded random number generator
         for (let i = array.length - 1; i > 0; i--) {
-            // Using seededRandom instead of Math.random
             const j = Math.floor(seededRandom() * (i + 1)); 
             [array[i], array[j]] = [array[j], array[i]]; 
         }
@@ -655,43 +996,33 @@
 
     function solveRow(rowIndex, currentRows, wordList) {
         if (rowIndex === 4) {
-            // Final validation: Check columns
             const colSet = new Set();
             for (let c = 0; c < 4; c++) {
                 let colWord = '';
                 for (let r = 0; r < 4; r++) colWord += currentRows[r][c];
-                
                 if (!WORD_SET.has(colWord)) return false;
                 if (usedWordsInPuzzle.has(colWord)) return false; 
-                
                 if(colSet.has(colWord)) return false;
                 colSet.add(colWord);
             }
             return true;
         }
-
         for (let w of wordList) {
             if (usedWordsInPuzzle.has(w)) continue;
-
             let validPrefix = true;
             for (let c = 0; c < 4; c++) {
                 let prefix = "";
                 for (let r = 0; r < rowIndex; r++) prefix += currentRows[r][c];
                 prefix += w[c];
-                
                 if (!PREFIX_SET.has(prefix)) {
                     validPrefix = false;
                     break;
                 }
             }
-
             if (validPrefix) {
                 currentRows.push(w);
                 usedWordsInPuzzle.add(w);
-                
                 if (solveRow(rowIndex + 1, currentRows, wordList)) return true;
-                
-                // Backtrack
                 usedWordsInPuzzle.delete(w);
                 currentRows.pop();
             }
@@ -699,8 +1030,6 @@
         return false;
     }
 
-    // --- Sound Engine ---
-    
     function playTone(type) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
@@ -708,7 +1037,6 @@
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         const now = audioCtx.currentTime;
-        
         switch(type) {
             case 'pickup':
                 osc.frequency.setValueAtTime(300, now);
@@ -729,6 +1057,21 @@
                 gain.gain.setValueAtTime(0.1, now);
                 gain.gain.linearRampToValueAtTime(0, now + 0.3);
                 osc.start(now); osc.stop(now + 0.3); break;
+            case 'error': 
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.2);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3); break;
+            case 'triumph': 
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(784, now);
+                osc.frequency.linearRampToValueAtTime(1244, now + 0.1);
+                osc.frequency.linearRampToValueAtTime(1568, now + 0.2);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc.start(now); osc.stop(now + 0.4); break;
             case 'win':
                 osc.type = 'square';
                 osc.frequency.setValueAtTime(523, now);
@@ -741,110 +1084,175 @@
         }
     }
 
-    // --- Game Logic ---
+    // --- Game Initialization Logic ---
 
-    function initGame() {
-        document.getElementById('status-msg').innerHTML = '<span class="loader"></span>';
-        resetTimer(); // Reset and stop timer during generation
-        isAutoSolving = false; // Reset the flag
+    function startGame(mode, onReady = null) {
+        // 1. Fix Audio
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         
-        // Ensure the image element is present before setup
-        const container = document.getElementById('modal-icon-container');
-        if (!document.getElementById('nessie-icon')) {
-            container.innerHTML = `<img id="nessie-icon" class="w-full h-full object-contain" src="" alt="Loch Ness Monster Icon" onerror="loadNessieFallback(this)">`;
+        // 2. Set Mode
+        currentMode = mode;
+        
+        // 3. Check for stored data
+        const data = getStoredData();
+        const savedState = data[mode];
+
+        // 4. Update UI Buttons (Disable Reset for Daily)
+        const resetBtn = document.getElementById('newGameBtn');
+        if (mode === 'daily') {
+            resetBtn.classList.add('btn-disabled');
+            resetBtn.disabled = true;
+        } else {
+            resetBtn.classList.remove('btn-disabled');
+            resetBtn.disabled = false;
+        }
+
+        // 5. Restore or Create Game
+        if (savedState && !savedState.isComplete) {
+            restoreGame(savedState, true);
+            if (onReady) onReady();
+        } else {
+            // If daily is complete, we shouldn't even be here due to menu logic,
+            // but just in case, start fresh or handle normally.
+            // For practice modes, start fresh if no save.
+            initNewGame(mode, onReady);
         }
         
-        // Clear any previous fallback SVG if present, reset image source
-        document.getElementById('nessie-icon').src = ''; 
-        
-        setTimeout(() => {
-            const diff = document.getElementById('difficulty').value;
-            let puzzleSeed = Math.random(); // Default to truly random
-
-            if (diff === 'daily') {
-                puzzleSeed = getDailySeed(); // Use date for daily seed
-            }
-            
-            currentSolution = generatePuzzle(puzzleSeed); // Generate based on seed
-            setupBoard(puzzleSeed); // Pass the same seed for tile distribution
-            startTimer(); // Start timer after board setup
-        }, 50);
+        // 6. Hide Overlay
+        const overlay = document.getElementById('startup-overlay');
+        overlay.classList.add('opacity-0');
+        overlay.style.pointerEvents = 'none';
+        setTimeout(() => { overlay.style.display = 'none'; }, 500);
     }
 
-    function setupBoard(puzzleSeed) { // Modified to accept seed
+    function restoreGame(state, startPlaying = true) {
+        document.getElementById('status-msg').innerHTML = '<span class="loader"></span>';
+        
+        // Load simple vars
+        elapsedTime = state.elapsedTime || 0;
+        hintsUsed = state.hintsUsed || 0;
+        currentSolution = state.currentSolution;
+        isGameWon = state.isComplete || false;
+        finalScore = state.finalScore || 0;
+        
+        // Reconstruct Sets (JSON converts them to Arrays)
+        lockedIndices = new Set(state.lockedIndices);
+        failedRows = new Set(state.failedRows);
+        failedCols = new Set(state.failedCols);
+        processedPatterns = new Set(state.processedPatterns);
+        solvedPatterns = new Set(state.solvedPatterns);
+        errorPatterns = new Set(state.errorPatterns);
+        
+        // Restore Grid/Inventory
+        gridState = state.gridState;
+        inventory = state.inventory;
+        
+        document.getElementById('timerDisplay').innerText = formatTime(elapsedTime);
+        
+        // FIX: Always allow pointer events so buttons (like Menu) remain clickable.
+        // The modal overlay prevents gameplay interaction when solved.
+        document.body.style.pointerEvents = 'auto';
+
+        if (startPlaying) {
+            document.getElementById('status-msg').innerText = "SELECT & PLACE";
+            render();
+            startTimer();
+        } else {
+            document.getElementById('status-msg').innerText = "SOLVED!";
+            render();
+            // Do NOT start timer
+        }
+    }
+
+    function initNewGame(mode, onReady = null) {
+        document.getElementById('status-msg').innerHTML = '<span class="loader"></span>';
+        resetTimer(); 
+        isAutoSolving = false; 
+        isGameWon = false;
+        finalScore = 0;
+        
+        // Removed setTimeout - Execute Immediately
+        let puzzleSeed = Math.random(); 
+        if (mode === 'daily') {
+            puzzleSeed = getDailySeed(); 
+        }
+        
+        currentSolution = generatePuzzle(puzzleSeed); 
+        setupBoard(puzzleSeed, mode); 
+        startTimer(); 
+        
+        // Save initial state immediately
+        saveGameState();
+        
+        if (onReady) onReady();
+    }
+
+    function setupBoard(puzzleSeed, mode) { 
         gridState = Array(16).fill(null);
         lockedIndices.clear();
-        inventory = [];
         selectedState = null;
+        inventory = [];
         hintsUsed = 0; 
         isAutoSolving = false; 
-        solvedPatterns.clear(); // ADDED: Reset the solved pattern tracker
+        solvedPatterns.clear();
+        errorPatterns.clear();
+        
+        failedRows.clear();
+        failedCols.clear();
+        processedPatterns.clear();
+        
+        isGameWon = false; // Ensure flag is reset
 
         document.getElementById('status-msg').innerText = "SELECT & PLACE";
         document.body.style.pointerEvents = 'auto';
 
-        const diff = document.getElementById('difficulty').value;
         let keepCount = 5;
-        if (diff === 'easy') keepCount = 8;
-        if (diff === 'hard') keepCount = 3;
+        if (mode === 'easy') keepCount = 8;
+        if (mode === 'hard') keepCount = 3;
 
-        // Reset seed specifically for tile and inventory distribution randomness
         setSeed(puzzleSeed + 'LAYOUT');
-        
         const indices = Array.from({length: 16}, (_, i) => i);
-        
-        // Use seeded shuffle for tile distribution
         for (let i = indices.length - 1; i > 0; i--) {
             const j = Math.floor(seededRandom() * (i + 1));
             [indices[i], indices[j]] = [indices[j], indices[i]];
         }
-        
         for (let i = 0; i < keepCount; i++) {
             const idx = indices[i];
             gridState[idx] = currentSolution[idx];
             lockedIndices.add(idx);
         }
-
         for (let i = keepCount; i < 16; i++) {
             inventory.push(currentSolution[indices[i]]);
         }
-        
-        // Use seeded sort for inventory order
         setSeed(puzzleSeed + 'INV'); 
         inventory.sort(() => seededRandom() - 0.5);
 
         render();
-        checkWin(false);
     }
 
-    // --- Rendering and Interaction (omitting unchanged methods) ---
+    // --- Interactions ---
 
     function render() {
         renderGrid();
         renderInventory();
         checkPatterns();
-        
         if (selectedState) {
-            if (selectedState.source === 'grid') {
-                const tile = document.querySelector(`.cell[data-index="${selectedState.index}"] .tile`);
-                if (tile) tile.classList.add('selected');
-            } else {
-                const tile = document.querySelector(`.tile[data-source="inventory"][data-index="${selectedState.index}"]`);
-                if (tile) tile.classList.add('selected');
-            }
+            const selector = selectedState.source === 'grid' 
+                ? `.cell[data-index="${selectedState.index}"] .tile` 
+                : `.tile[data-source="inventory"][data-index="${selectedState.index}"]`;
+            const tile = document.querySelector(selector);
+            if (tile) tile.classList.add('selected');
         }
     }
 
     function renderGrid() {
         const container = document.getElementById('game-grid');
         container.innerHTML = '';
-
         for (let i = 0; i < 16; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.dataset.index = i;
             cell.onclick = () => handleCellClick(i);
-
             if (gridState[i] !== null) {
                 const tile = createTile(gridState[i], lockedIndices.has(i));
                 tile.dataset.source = 'grid';
@@ -874,52 +1282,34 @@
         div.className = 'tile';
         if (isLocked) div.classList.add('hard-locked');
         div.textContent = char;
-        if (!isLocked) {
-            div.addEventListener('pointerdown', handlePointerDown);
-        }
+        if (!isLocked) div.addEventListener('pointerdown', handlePointerDown);
         return div;
     }
 
-    // --- Interaction (keeping drag/drop/click logic for completeness) ---
+    // ... Drag & Drop Logic ...
     let dragItem = null, dragData = null, startX = 0, startY = 0, isDragging = false;
     let tileWidth = 0;
     let tileHeight = 0;
 
     function handlePointerDown(e) {
-        // FIX: Explicitly resume audio context on the user's first interaction event (pointerdown),
-        // which is often required by mobile browsers to enable audio playback for the session.
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(err => console.error("Audio context resume failed:", err));
-        }
-
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(e=>{});
         e.preventDefault(); 
         const target = e.currentTarget;
-        
-        // This measures the nominal tile size before scaling/transforming
         if (tileWidth === 0) {
             const style = getComputedStyle(target);
             tileWidth = parseFloat(style.width);
             tileHeight = parseFloat(style.height);
         }
-
-        dragData = { 
-            char: target.textContent, 
-            source: target.dataset.source, 
-            index: parseInt(target.dataset.index), 
-            originalElement: target 
-        };
-        startX = e.clientX;
-        startY = e.clientY;
-        isDragging = false;
+        dragData = { char: target.textContent, source: target.dataset.source, index: parseInt(target.dataset.index), originalElement: target };
+        startX = e.clientX; startY = e.clientY; isDragging = false;
         document.addEventListener('pointermove', handlePointerMove);
         document.addEventListener('pointerup', handlePointerUp);
     }
 
     function handlePointerMove(e) {
-        e.preventDefault(); /* FIX: Prevent default scrolling/panning behavior on touch devices */
+        e.preventDefault();
         if (Math.hypot(e.clientX - startX, e.clientY - startY) > 10 && !isDragging) startDrag(e);
         if (isDragging && dragItem) {
-            // When dragging, we center the tile around the pointer
             const halfScaledWidth = (tileWidth * 1.1) / 2;
             const halfScaledHeight = (tileHeight * 1.1) / 2;
             dragItem.style.left = (e.clientX - halfScaledWidth) + 'px';
@@ -930,24 +1320,14 @@
 
     function startDrag(e) {
         isDragging = true;
-        if (selectedState) {
-            selectedState = null;
-            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-        }
-        
+        if (selectedState) { selectedState = null; document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected')); }
         dragItem = dragData.originalElement.cloneNode(true);
-        dragItem.classList.add('dragging');
-        dragItem.classList.remove('selected');
-        
-        // Remove the absolute centering transform when switching to fixed position
+        dragItem.classList.add('dragging'); dragItem.classList.remove('selected');
         dragItem.style.transform = 'scale(1.1)'; 
-        
-        // Calculate initial fixed position based on pointer down location and scale factor
         const halfScaledWidth = (tileWidth * 1.1) / 2;
         const halfScaledHeight = (tileHeight * 1.1) / 2;
         dragItem.style.left = (e.clientX - halfScaledWidth) + 'px';
         dragItem.style.top = (e.clientY - halfScaledHeight) + 'px';
-        
         document.body.appendChild(dragItem);
         dragData.originalElement.style.opacity = '0';
         playTone('pickup');
@@ -956,60 +1336,41 @@
     function handlePointerUp(e) {
         document.removeEventListener('pointermove', handlePointerMove);
         document.removeEventListener('pointerup', handlePointerUp);
-        
         document.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
-        
-        if (dragData && dragData.originalElement) {
-             dragData.originalElement.style.opacity = '1';
-        }
-
-        if (!isDragging) handleClick();
-        else handleDrop(e);
-        
+        if (dragData && dragData.originalElement) dragData.originalElement.style.opacity = '1';
+        if (!isDragging) handleClick(); else handleDrop(e);
         if (dragItem) dragItem.remove();
         dragItem = null; dragData = null; isDragging = false;
     }
 
     function handleClick() {
         const clickedTile = { index: dragData.index, source: dragData.source, char: dragData.char };
-        
-        // 1. If clicking the already selected tile, deselect it.
         if (selectedState && selectedState.index === clickedTile.index && selectedState.source === clickedTile.source) {
             selectedState = null; playTone('pickup'); render(); return;
         }
-        
-        // 2. If no tile is currently selected, select this one.
         if (!selectedState) {
             selectedState = clickedTile; playTone('pickup'); render(); return;
         }
-
-        // If a tile is already selected (selectedState exists), 
-        // AND the current click is on another inventory tile, treat it as a new selection (swap selection, not letters).
         if (selectedState.source === 'inventory' && clickedTile.source === 'inventory') {
-            selectedState = clickedTile;
-            playTone('pickup'); 
-            render();
-            return;
+            selectedState = clickedTile; playTone('pickup'); render(); return;
         }
-
-        // 3. Perform move (applies to: grid-to-grid, inventory-to-grid, grid-to-inventory)
         performMove(selectedState, clickedTile);
         selectedState = null;
     }
 
     function handleCellClick(targetIndex) {
         if (!selectedState) return;
-        if (gridState[targetIndex] !== null) return;
-        const target = { index: targetIndex, source: 'grid', char: null };
+        const target = { index: targetIndex, source: 'grid', char: gridState[targetIndex] };
         performMove(selectedState, target);
         selectedState = null;
     }
 
     function performMove(from, to) {
         let moveMade = false;
+        const isPlacement = (from.source === 'inventory' && to.source === 'grid');
         if (from.source === 'grid' && to.source === 'grid') {
             const temp = gridState[to.index]; gridState[to.index] = gridState[from.index]; gridState[from.index] = temp; moveMade = true;
-        } else if (from.source === 'inventory' && to.source === 'grid') {
+        } else if (isPlacement) {
             const char = inventory[from.index]; const targetChar = gridState[to.index];
             inventory.splice(from.index, 1);
             if (targetChar) inventory.push(targetChar);
@@ -1020,7 +1381,12 @@
         } else if (from.source === 'inventory' && to.source === 'inventory') {
             const temp = inventory[to.index]; inventory[to.index] = inventory[from.index]; inventory[from.index] = temp; moveMade = true;
         }
-        if (moveMade) { playTone('drop'); render(); }
+        if (moveMade) { 
+            playTone('drop'); 
+            render(); 
+            // Save on every valid move
+            saveGameState();
+        }
     }
 
     function handleDrop(e) {
@@ -1034,8 +1400,14 @@
             const from = { index: dragData.index, source: dragData.source, char: dragData.char };
             performMove(from, target);
         } else if (dragData.source === 'grid') {
-            gridState[dragData.index] = null; inventory.push(dragData.char); playTone('drop'); render();
-        } else { cancelDrag(); }
+            gridState[dragData.index] = null; 
+            inventory.push(dragData.char); 
+            playTone('drop'); 
+            render();
+            saveGameState();
+        } else { 
+            cancelDrag(); 
+        }
     }
 
     function cancelDrag() { dragData.originalElement.style.opacity = '1'; }
@@ -1051,121 +1423,214 @@
 
     function checkPatterns() {
         document.querySelectorAll('.word-glow').forEach(el => el.classList.remove('word-glow'));
+        document.querySelectorAll('.triumph').forEach(el => el.classList.remove('triumph'));
         
-        let justSolved = false; // Flag to track new solves only
+        let justSolved = false;
+        let triumphIndices = new Set(); 
 
-        // Row check (0, 1, 2, 3)
-        for(let r=0; r<4; r++) {
-            let w = ''; 
-            const solutionWord = currentSolution.slice(r*4, r*4+4).join(''); 
-            let idxs = [];
-            const patternId = `R${r}`;
-            
-            for(let c=0; c<4; c++) { 
-                const idx = r * 4 + c;
-                w += gridState[idx] || ' '; 
-                idxs.push(idx); 
-            }
-
-            if (w === solutionWord) {
-                 highlightWord(idxs);
-                 if (!solvedPatterns.has(patternId)) { // Check if pattern is newly solved
-                     solvedPatterns.add(patternId);
-                     justSolved = true;
-                 }
-            } else {
-                 // If the word is now broken, remove it from the solved set
-                 if (solvedPatterns.has(patternId)) {
-                     solvedPatterns.delete(patternId);
-                 }
-            }
-        }
-
-        // Column check (0, 1, 2, 3)
-        for(let c=0; c<4; c++) {
+        const processLine = (indices, type, index, solutionWord) => {
             let w = '';
+            indices.forEach(idx => w += (gridState[idx] || ' '));
+            const patternKey = `${type}${index}:${w}`; 
+            const id = `${type}${index}`;
+
+            if (w.length === 4 && !w.includes(' ')) {
+                if (processedPatterns.has(patternKey)) {
+                    if (w === solutionWord) highlightWord(indices);
+                    return;
+                }
+                processedPatterns.add(patternKey);
+                if (w === solutionWord) {
+                    highlightWord(indices);
+                    let hasFailed = (type === 'R') ? failedRows.has(index) : failedCols.has(index);
+                    if (!solvedPatterns.has(id)) {
+                        justSolved = true;
+                        if (!hasFailed) indices.forEach(idx => triumphIndices.add(idx));
+                    }
+                    solvedPatterns.add(id);
+                } else {
+                    if (type === 'R') failedRows.add(index); else failedCols.add(index);
+                    highlightWordError(indices);
+                    playTone('error');
+                    if (solvedPatterns.has(id)) solvedPatterns.delete(id);
+                }
+            } else {
+                if (solvedPatterns.has(id)) solvedPatterns.delete(id);
+            }
+        };
+
+        for(let r=0; r<4; r++) {
+            const solutionWord = currentSolution.slice(r*4, r*4+4).join('');
+            const idxs = [r*4, r*4+1, r*4+2, r*4+3];
+            processLine(idxs, 'R', r, solutionWord);
+        }
+        for(let c=0; c<4; c++) {
             let solutionWord = '';
             let idxs = [];
-            const patternId = `C${c}`;
-            
-            for(let r=0; r<4; r++) { 
-                const idx = r * 4 + c;
-                w += gridState[idx] || ' '; 
-                solutionWord += currentSolution[idx]; 
-                idxs.push(idx); 
+            for(let r=0; r<4; r++) {
+                solutionWord += currentSolution[r*4 + c];
+                idxs.push(r*4 + c);
             }
-            
-            if (w === solutionWord) {
-                 highlightWord(idxs);
-                 if (!solvedPatterns.has(patternId)) { // Check if pattern is newly solved
-                     solvedPatterns.add(patternId);
-                     justSolved = true;
-                 }
-            } else {
-                 // If the word is now broken, remove it from the solved set
-                 if (solvedPatterns.has(patternId)) {
-                     solvedPatterns.delete(patternId);
-                 }
-            }
+            processLine(idxs, 'C', c, solutionWord);
         }
-        
-        // Play match tone only if a NEW word was correctly placed in this turn
-        if (justSolved) playTone('match'); 
 
+        if (triumphIndices.size > 0) {
+            playTone('triumph');
+            triumphIndices.forEach(idx => {
+                const cell = document.querySelector(`.cell[data-index="${idx}"]`);
+                if (cell && cell.querySelector('.tile')) cell.querySelector('.tile').classList.add('triumph');
+            });
+        } else if (justSolved) {
+             playTone('match'); 
+        }
         checkWin(true);
     }
 
     function highlightWord(indices) {
         indices.forEach(idx => {
             const cell = document.querySelector(`.cell[data-index="${idx}"]`);
-            if (cell) {
-                const tile = cell.querySelector('.tile');
-                if (tile) tile.classList.add('word-glow');
-            }
+            if (cell && cell.querySelector('.tile')) cell.querySelector('.tile').classList.add('word-glow');
+        });
+    }
+
+    function highlightWordError(indices) {
+        indices.forEach(idx => {
+            const cell = document.querySelector(`.cell[data-index="${idx}"]`);
+            if (cell && cell.querySelector('.tile')) cell.querySelector('.tile').classList.add('word-error');
         });
     }
 
     function checkWin(playAudio) {
         const isWin = gridState.every((char, i) => char === currentSolution[i]);
-        
-        // New: If we are auto-solving, exit the user win check immediately.
         if (isAutoSolving) return; 
 
         if (isWin) {
             pauseTimer();
             if (playAudio) playTone('win');
             
-            const nessieIcon = document.getElementById('nessie-icon');
-            const currentDiff = document.getElementById('difficulty').value;
-            const timeString = formatTime(elapsedTime);
+            const totalScore = renderScoreGrid(true); // Calculate and render
             
-            // Set image source based on difficulty
-            if (nessieIcon) nessieIcon.src = IMAGE_PATHS[currentDiff];
-            
+            // Update Global State for persistence
+            isGameWon = true;
+            finalScore = totalScore;
             
             let winMessage = "Perfect! You solved the grid yourself!";
-             
-
              if (hintsUsed > 0) {
-                 const hintText = `You only needed ${hintsUsed} hint${hintsUsed !== 1 ? 's' : ''}.`;
-                 if (currentDiff === 'easy') {
-                     winMessage = `Victory achieved in ${timeString}! ${hintText} Maybe next time, try 'Easy'... oh, wait.`;
-                 } else {
-                     winMessage = `Victory achieved in ${timeString}! ${hintText} Maybe next time, try 'Easy'?`;
-                 }
+                 winMessage = `Victory in ${formatTime(elapsedTime)}! You used ${hintsUsed} hint(s).`;
              } else {
-                 winMessage = `Flawless Victory in ${timeString}! No hints required. You are a grid master.`;
+                 winMessage = `Flawless Victory in ${formatTime(elapsedTime)}!`;
              }
              
-             // Reset modal title for user win state (in case it was AUTO-SOLVED before)
              document.querySelector('#modal-content h2').innerText = "SOLVED!";
              document.querySelector('#modal-content p').innerText = winMessage;
              
+             // Hide next puzzle if daily
+             const nextBtn = document.getElementById('playAgainBtn');
+             if (currentMode === 'daily') {
+                 nextBtn.style.display = 'none';
+                 
+                 // Manually update daily storage to include winMessage
+                 const data = getStoredData();
+                 if (!data.daily) data.daily = {};
+                 data.daily.isComplete = true;
+                 data.daily.finalScore = totalScore;
+                 data.daily.seed = getDailySeed();
+                 data.daily.winMessage = winMessage; // SAVE MESSAGE
+                 
+                 // Also save component state
+                 data.daily.gridState = gridState;
+                 data.daily.elapsedTime = elapsedTime;
+                 data.daily.hintsUsed = hintsUsed;
+                 data.daily.inventory = inventory;
+                 data.daily.lockedIndices = [...lockedIndices];
+                 
+                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                 
+             } else {
+                 nextBtn.style.display = 'block';
+                 // For practice modes, save the game state as "Complete" immediately
+                 // so the menu knows to start a new one next time
+                 saveGameState();
+             }
+
              const modal = document.getElementById('modal');
              modal.classList.remove('hidden');
              void modal.offsetWidth;
              modal.classList.remove('opacity-0');
         }
+    }
+
+    function renderScoreGrid(returnScore = false) {
+        const container = document.getElementById('modal-score-container');
+        const legendContainer = document.getElementById('score-legend');
+        const scoreDisplay = document.getElementById('final-score');
+        container.innerHTML = '';
+        legendContainer.innerHTML = '';
+        
+        const POINTS = { PERFECT: 4, SEMI: 2, CORRECT: 1, LOCKED: 0 };
+        let tileScore = 0;
+
+        if (isAutoSolving) {
+             for (let i = 0; i < 16; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'score-cell locked';
+                container.appendChild(cell);
+             }
+             scoreDisplay.innerText = "0";
+             legendContainer.innerHTML = `<span class="text-slate-500 italic">Auto-solved</span>`;
+             return 0;
+        }
+
+        for (let i = 0; i < 16; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'score-cell';
+            if (lockedIndices.has(i)) {
+                cell.classList.add('locked');
+                tileScore += POINTS.LOCKED;
+            } else {
+                const r = Math.floor(i / 4);
+                const c = i % 4;
+                const rowIsFirstTry = !failedRows.has(r);
+                const colIsFirstTry = !failedCols.has(c);
+                if (rowIsFirstTry && colIsFirstTry) {
+                    cell.classList.add('perfect'); tileScore += POINTS.PERFECT;
+                } else if (rowIsFirstTry || colIsFirstTry) {
+                    cell.classList.add('semi-perfect'); tileScore += POINTS.SEMI;
+                } else {
+                    cell.classList.add('correct'); tileScore += POINTS.CORRECT;
+                }
+            }
+            container.appendChild(cell);
+        }
+
+        const timeMultiplier = Math.floor(1000 / Math.max(elapsedTime, 30));
+        const totalScore = tileScore * timeMultiplier;
+        
+        scoreDisplay.innerText = totalScore.toLocaleString();
+
+        const legendItems = [
+            { label: "Perfect", class: "perfect", color: "#facc15" },
+            { label: "Good", class: "semi-perfect", color: "#3b82f6" },
+            { label: "Solved", class: "correct", color: "#94a3b8" },
+            { label: "Locked", class: "locked", color: "#020617", border: "1px solid #334155" }
+        ];
+
+        legendItems.forEach(item => {
+            const keyItem = document.createElement('div');
+            keyItem.className = 'score-key-item';
+            const dot = document.createElement('div');
+            dot.className = 'key-dot';
+            dot.style.backgroundColor = item.color;
+            if (item.border) dot.style.border = item.border;
+            if (item.class === 'perfect') dot.style.boxShadow = "0 0 5px rgba(250, 204, 21, 0.5)";
+            const label = document.createElement('span');
+            label.innerText = item.label;
+            keyItem.appendChild(dot);
+            keyItem.appendChild(label);
+            legendContainer.appendChild(keyItem);
+        });
+        
+        return totalScore;
     }
 
     function giveHint() {
@@ -1178,6 +1643,11 @@
 
         const targetIdx = wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
         const correctChar = currentSolution[targetIdx];
+        
+        const r = Math.floor(targetIdx / 4);
+        const c = targetIdx % 4;
+        failedRows.add(r);
+        failedCols.add(c);
 
         if (gridState[targetIdx]) inventory.push(gridState[targetIdx]);
         const invIdx = inventory.indexOf(correctChar);
@@ -1189,9 +1659,7 @@
         gridState[targetIdx] = correctChar;
         lockedIndices.add(targetIdx);
         
-        hintsUsed++; // INCREMENT HINT COUNTER
-
-        // Sarcastic message logic
+        hintsUsed++; 
         let statusMsg;
         if (hintsUsed > 2) {
             statusMsg = SARCASTIC_MESSAGES.HINT_FAIL[Math.floor(Math.random() * SARCASTIC_MESSAGES.HINT_FAIL.length)];
@@ -1199,32 +1667,25 @@
             statusMsg = SARCASTIC_MESSAGES.HINT[Math.floor(Math.random() * SARCASTIC_MESSAGES.HINT.length)];
         }
         document.getElementById('status-msg').innerText = statusMsg;
-
-
         playTone('match');
         render();
+        saveGameState();
     }
 
     async function solve() {
-        pauseTimer(); // Stop timer immediately
-        isAutoSolving = true; // Set flag to prevent user win logic from running
+        pauseTimer(); 
+        isAutoSolving = true; 
         const solveTime = formatTime(elapsedTime);
-
-        // --- NEW LOGIC: Set Status Message during Solve ---
         const sarcasticMsgTemplate = SARCASTIC_MESSAGES.SOLVE[Math.floor(Math.random() * SARCASTIC_MESSAGES.SOLVE.length)];
         document.getElementById('status-msg').innerText = sarcasticMsgTemplate;
-        // --- END NEW LOGIC ---
-
         document.body.style.pointerEvents = 'none';
         selectedState = null; render();
 
         for (let i = 0; i < 16; i++) {
             const targetChar = currentSolution[i];
             if (gridState[i] === targetChar) continue;
-
             let foundInInventory = inventory.indexOf(targetChar);
             let foundInGrid = -1;
-
             if (foundInInventory !== -1) {
                 const wrongChar = gridState[i];
                 inventory.splice(foundInInventory, 1);
@@ -1250,49 +1711,115 @@
             await new Promise(r => setTimeout(r, 150));
         }
         
-        // Set auto-solve image source
-        const nessieIcon = document.getElementById('nessie-icon');
-        if (nessieIcon) nessieIcon.src = IMAGE_PATHS.autoSolve;
-        
-        // Prepare modal for auto-solve
+        const solveMessage = `I solved it in ${solveTime}. It seems one of us is a grid master!`;
         document.querySelector('#modal-content h2').innerText = "AUTO-SOLVED";
-        document.querySelector('#modal-content p').innerText = `I solved it in ${solveTime}. It seems one of us is a grid master! Try a new puzzle without the emergency button next time.`;
-        
+        document.querySelector('#modal-content p').innerText = solveMessage;
         lockedIndices = new Set([...Array(16).keys()]);
-        
-        // Final check and win sound (checkWin is now ignored because of the flag)
         checkPatterns();
         playTone('win'); 
-        
+        renderScoreGrid();
         document.body.style.pointerEvents = 'auto';
+        
+        // Reset save for practice modes to avoid stuck solved state
+        if (currentMode !== 'daily') {
+            clearModeState(currentMode);
+            // Ensure Next Puzzle button is visible for non-daily
+            document.getElementById('playAgainBtn').style.display = 'block';
+        } else {
+            // Hide Next Puzzle button for daily
+            document.getElementById('playAgainBtn').style.display = 'none';
+            
+            // Update global state for persistence
+            isGameWon = true;
+            finalScore = 0;
+            
+            const data = getStoredData();
+            if (!data.daily) data.daily = {};
+            data.daily.isComplete = true;
+            data.daily.finalScore = 0;
+            data.daily.seed = getDailySeed(); 
+            data.daily.winMessage = solveMessage; // SAVE MESSAGE
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
 
         const modal = document.getElementById('modal');
         modal.classList.remove('hidden');
         void modal.offsetWidth;
         modal.classList.remove('opacity-0');
         
-        isAutoSolving = false; // Reset flag after modal is displayed
-
-        // Restore default message AFTER the modal is shown/transitioned
+        isAutoSolving = false; 
         document.getElementById('status-msg').innerText = "SOLVED!";
     }
 
-    document.getElementById('newGameBtn').addEventListener('click', () => { playTone('pickup'); initGame(); });
-    document.getElementById('difficulty').addEventListener('change', initGame);
-    document.getElementById('hintBtn').addEventListener('click', giveHint);
-    document.getElementById('solveBtn').addEventListener('click', solve);
-    document.getElementById('playAgainBtn').addEventListener('click', () => {
-        document.getElementById('modal').classList.add('opacity-0');
-        setTimeout(() => {
-            document.getElementById('modal').classList.add('hidden');
-            // Reset modal title for user win state
-            document.querySelector('#modal-content h2').innerText = "SOLVED!";
-            initGame();
-        }, 300);
+    document.getElementById('newGameBtn').addEventListener('click', () => { 
+        playTone('pickup'); 
+        // Reset Logic
+        clearModeState(currentMode);
+        initNewGame(currentMode);
+    });
+    
+    document.getElementById('menuBtn').addEventListener('click', () => {
+        playTone('pickup');
+        showMenu();
     });
 
-    initGame();
+    document.getElementById('hintBtn').addEventListener('click', giveHint);
+    document.getElementById('solveBtn').addEventListener('click', solve);
+    
+    document.getElementById('playAgainBtn').addEventListener('click', () => {
+        // Instant action: Hide modal immediately (but wait for new game render)
+        document.querySelector('#modal-content h2').innerText = "SOLVED!";
+        
+        clearModeState(currentMode);
+        initNewGame(currentMode, () => {
+            // Only hide modal after new board is ready to prevent flash
+            const modal = document.getElementById('modal');
+            modal.classList.add('hidden');
+            modal.classList.add('opacity-0');
+        });
+    });
+
+    document.getElementById('modalMenuBtn').addEventListener('click', () => {
+        const modal = document.getElementById('modal');
+        modal.classList.add('hidden');
+        modal.classList.add('opacity-0');
+        
+        const overlay = document.getElementById('startup-overlay');
+        const isMenuVisible = window.getComputedStyle(overlay).display !== 'none';
+        
+        if (!isMenuVisible) {
+            showMenu(true); // Pass instant=true
+        } else {
+            updateMenuUI(); 
+        }
+    });
+
+    // Global click listener for Background Deselect / Return to Inventory
+    document.addEventListener('click', (e) => {
+        if (!selectedState) return;
+        if (e.target.closest('.tile') || e.target.closest('.cell') || e.target.closest('button') || e.target.closest('select')) return;
+
+        if (selectedState.source === 'grid') {
+            const idx = selectedState.index;
+            const char = selectedState.char;
+            if (lockedIndices.has(idx)) { selectedState = null; render(); return; }
+            gridState[idx] = null;
+            inventory.push(char);
+            playTone('drop');
+            selectedState = null;
+            render();
+            saveGameState();
+        } else {
+            selectedState = null;
+            playTone('pickup');
+            render();
+        }
+    });
+
     lucide.createIcons();
+    // Initial Menu Update
+    updateMenuUI();
 </script>
 </body>
 </html>
